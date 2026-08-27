@@ -1,155 +1,29 @@
-name: Factory Codex Review Gate
+name: Factory Codex Review Signal
 
 on:
   pull_request_review:
     types: [submitted]
 
-# Read-only by default. The write-capable control job runs on a fresh runner,
-# does not checkout the PR, and never executes repository code.
+# This PR-associated workflow never writes. Its completion wakes the trusted
+# default-branch factory-controller.yml via workflow_run.
 permissions:
   contents: read
 
 concurrency:
-  group: factory-review-${{ github.event.pull_request.number }}
-  cancel-in-progress: false
+  group: factory-review-signal-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
-  inspect:
+  signal:
     if: github.event.review.user.login == 'chatgpt-codex-connector[bot]' && github.event.review.user.type == 'Bot'
-    name: Factory Codex review inspection
+    name: Factory Codex review signal
     permissions:
       contents: read
-      checks: read
-      issues: read
-      pull-requests: read
     runs-on: ubuntu-latest
-    outputs:
-      factory_pr: ${{ steps.inspect.outputs.factory_pr }}
-      issue: ${{ steps.inspect.outputs.issue }}
-      stale: ${{ steps.inspect.outputs.stale }}
-      blocking: ${{ steps.inspect.outputs.blocking }}
-      risk: ${{ steps.inspect.outputs.risk }}
-      ci_passed: ${{ steps.inspect.outputs.ci_passed }}
-      reviewed_head: ${{ steps.inspect.outputs.reviewed_head }}
     steps:
-      - name: Inspect review, risk, and deterministic CI
-        id: inspect
+      - name: Record signal only
         env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REVIEW_ID: ${{ github.event.review.id }}
-          REVIEW_STATE: ${{ github.event.review.state }}
           REVIEW_COMMIT: ${{ github.event.review.commit_id }}
-          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           set -euo pipefail
-
-          echo 'factory_pr=false' >> "$GITHUB_OUTPUT"
-          echo 'stale=true' >> "$GITHUB_OUTPUT"
-          echo 'blocking=true' >> "$GITHUB_OUTPUT"
-          echo 'risk=high' >> "$GITHUB_OUTPUT"
-          echo 'ci_passed=false' >> "$GITHUB_OUTPUT"
-          echo "reviewed_head=$REVIEW_COMMIT" >> "$GITHUB_OUTPUT"
-
-          issue="$(printf '%s' "$PR_BODY" | sed -nE 's/.*(Closes|Fixes|Resolves)[[:space:]]+#([0-9]+).*/\2/ip' | head -1)"
-          echo "issue=$issue" >> "$GITHUB_OUTPUT"
-          [ -n "$issue" ] || exit 0
-
-          # Fail closed if GitHub cannot provide issue state.
-          issue_json="$(gh api "repos/$REPOSITORY/issues/$issue")"
-          delegated="$(printf '%s' "$issue_json" | jq -r '[.labels[].name] | any(. == "factory:delegated")')"
-          [ "$delegated" = 'true' ] || exit 0
-          echo 'factory_pr=true' >> "$GITHUB_OUTPUT"
-
-          # A review must match both the event head and the current live PR head.
-          live_head="$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq '.head.sha')"
-          if [ "$REVIEW_COMMIT" != "$EVENT_HEAD_SHA" ] || [ "$REVIEW_COMMIT" != "$live_head" ]; then
-            exit 0
-          fi
-          echo 'stale=false' >> "$GITHUB_OUTPUT"
-
-          # Fetch all inline review comments. Any retrieval failure terminates the
-          # read-only job, so an incomplete review can never authorize a merge.
-          inline_count="$(gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/comments?per_page=100" --jq "[.[] | select(.pull_request_review_id == $REVIEW_ID)] | length" | awk '{s+=$1} END {print s+0}')"
-          if [ "${REVIEW_STATE,,}" = 'changes_requested' ] || [ "$inline_count" -gt 0 ]; then
-            echo 'blocking=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'blocking=false' >> "$GITHUB_OUTPUT"
-          fi
-
-          # Classify from GitHub's changed-file API; no PR checkout is needed in
-          # this review workflow.
-          risk='low'
-          while IFS= read -r file; do
-            case "$file" in
-              src/lib/crypto.ts|src/lib/auth.ts|src/lib/validation.ts|src/lib/security/*|src/lib/security/**|src/app/page.tsx|src/app/s/*|src/app/s/**|src/app/api/secrets/*|src/app/api/secrets/**|src/app/api/auth/*|src/app/api/auth/**|src/services/secrets.ts|src/db/*|src/db/**|drizzle/*|drizzle/**|SECURITY.md|docs/THREAT_MODEL.md|wrangler.jsonc|.github/*|.github/**|.factory/*|.factory/**)
-                risk='high'; break ;;
-              src/app/api/*|src/app/api/**|src/services/*|src/services/**|package.json|pnpm-lock.yaml)
-                [ "$risk" = 'low' ] && risk='medium' ;;
-            esac
-          done < <(gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" --jq '.[].filename')
-          echo "risk=$risk" >> "$GITHUB_OUTPUT"
-
-          conclusion="$(gh api "repos/$REPOSITORY/commits/$REVIEW_COMMIT/check-runs?per_page=100" --jq '[.check_runs[] | select(.name == "Factory deterministic gate" and .app.slug == "github-actions")] | sort_by(.started_at) | last | .conclusion // ""')"
-          if [ "$conclusion" = 'success' ]; then
-            echo 'ci_passed=true' >> "$GITHUB_OUTPUT"
-          fi
-
-  control:
-    if: always() && needs.inspect.result == 'success' && needs.inspect.outputs.factory_pr == 'true'
-    needs: inspect
-    name: Factory Codex review control
-    permissions:
-      contents: read
-      issues: write
-      pull-requests: write
-    runs-on: ubuntu-latest
-    steps:
-      - name: Handle stale review
-        if: needs.inspect.outputs.stale == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          gh pr comment "$PR_NUMBER" --body 'Ignoring this Codex review for merge purposes because it did not review the PR current head. A fresh Codex review is required.'
-
-      - name: Handle blocking review
-        if: needs.inspect.outputs.stale == 'false' && needs.inspect.outputs.blocking == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          ISSUE_NUMBER: ${{ needs.inspect.outputs.issue }}
-        run: |
-          gh issue edit "$ISSUE_NUMBER" --add-label 'factory:needs-human' || true
-          gh pr comment "$PR_NUMBER" --body $'Native Codex review found blocking feedback. Because subscription authentication belongs to your ChatGPT account, GitHub Actions does not impersonate that account to start the repair task. Add a **user-authored** comment such as `@codex address all current review findings, add regression tests, run pnpm test/typecheck/build, and update this PR`. A fresh Codex review of the updated head is required.'
-
-      - name: Wait for deterministic verification
-        if: needs.inspect.outputs.stale == 'false' && needs.inspect.outputs.blocking == 'false' && needs.inspect.outputs.ci_passed != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          gh pr comment "$PR_NUMBER" --body 'Native Codex review is clean, but the deterministic factory gate has not succeeded for this exact head SHA yet. The PR gate will retry the merge decision after tests/typecheck/build finish.'
-
-      - name: Require human approval for high-risk PR
-        if: needs.inspect.outputs.stale == 'false' && needs.inspect.outputs.blocking == 'false' && needs.inspect.outputs.ci_passed == 'true' && needs.inspect.outputs.risk == 'high' && vars.FACTORY_ALLOW_HIGH_RISK_AUTOMERGE != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          ISSUE_NUMBER: ${{ needs.inspect.outputs.issue }}
-        run: |
-          gh issue edit "$ISSUE_NUMBER" --add-label 'factory:needs-human' || true
-          gh pr comment "$PR_NUMBER" --body 'Native Codex review and deterministic CI are clean, but this PR is **high risk**. Human merge approval is required.'
-
-      - name: Enable auto-merge for eligible PR
-        if: needs.inspect.outputs.stale == 'false' && needs.inspect.outputs.blocking == 'false' && needs.inspect.outputs.ci_passed == 'true' && (needs.inspect.outputs.risk != 'high' || vars.FACTORY_ALLOW_HIGH_RISK_AUTOMERGE == 'true')
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REVIEWED_HEAD_SHA: ${{ needs.inspect.outputs.reviewed_head }}
-          RISK: ${{ needs.inspect.outputs.risk }}
-        run: |
-          gh pr comment "$PR_NUMBER" --body "Native Codex review is clean, deterministic verification passed for this exact head, and risk is **$RISK**. Enabling squash auto-merge."
-          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch --match-head-commit "$REVIEWED_HEAD_SHA"
+          echo "Codex submitted a review for $REVIEW_COMMIT. Trusted controller will re-read the live PR state."

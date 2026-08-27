@@ -2,10 +2,11 @@ name: Factory PR Gate
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, closed]
+    types: [opened, synchronize, reopened, ready_for_review]
 
-# Untrusted PR code runs only in the read-only verify job. Jobs that receive
-# write-capable tokens use fresh runners and never checkout or execute PR code.
+# This workflow is PR-controlled, so it must remain read-only. It verifies code
+# only. All issue/PR writes and merge decisions live in factory-controller.yml,
+# which is invoked via workflow_run from the trusted default branch.
 permissions:
   contents: read
 
@@ -15,14 +16,12 @@ concurrency:
 
 jobs:
   verify:
-    if: github.event.action != 'closed' && github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false
     name: Factory deterministic gate
     permissions:
       contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    outputs:
-      risk: ${{ steps.risk.outputs.risk }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -39,8 +38,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm build
 
-      - name: Classify risk
-        id: risk
+      - name: Classify risk for visibility
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -49,113 +47,10 @@ jobs:
           risk='low'
           while IFS= read -r file; do
             case "$file" in
-              src/lib/crypto.ts|src/lib/auth.ts|src/lib/validation.ts|src/lib/security/*|src/lib/security/**|src/app/page.tsx|src/app/s/*|src/app/s/**|src/app/api/secrets/*|src/app/api/secrets/**|src/app/api/auth/*|src/app/api/auth/**|src/services/secrets.ts|src/db/*|src/db/**|drizzle/*|drizzle/**|SECURITY.md|docs/THREAT_MODEL.md|wrangler.jsonc|.github/*|.github/**|.factory/*|.factory/**)
+              src/lib/crypto.ts|src/lib/share-link.ts|src/lib/encoding.ts|src/lib/auth.ts|src/lib/validation.ts|src/lib/security/*|src/lib/security/**|src/app/page.tsx|src/app/s/*|src/app/s/**|src/app/api/secrets/*|src/app/api/secrets/**|src/app/api/auth/*|src/app/api/auth/**|src/services/secrets.ts|src/db/*|src/db/**|drizzle/*|drizzle/**|SECURITY.md|docs/THREAT_MODEL.md|wrangler.jsonc|.github/*|.github/**|.factory/*|.factory/**)
                 risk='high'; break ;;
               src/app/api/*|src/app/api/**|src/services/*|src/services/**|package.json|pnpm-lock.yaml)
                 [ "$risk" = 'low' ] && risk='medium' ;;
             esac
           done < <(git diff --name-only "$BASE_SHA...$HEAD_SHA")
-          echo "risk=$risk" >> "$GITHUB_OUTPUT"
-
-  control:
-    if: github.event.action != 'closed' && github.event.pull_request.draft == false
-    needs: verify
-    name: Factory control gate
-    permissions:
-      contents: read
-      issues: write
-      pull-requests: write
-    runs-on: ubuntu-latest
-    steps:
-      - name: Resolve linked delegated factory issue
-        id: issue
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          set -euo pipefail
-          number="$(printf '%s' "$PR_BODY" | sed -nE 's/.*(Closes|Fixes|Resolves)[[:space:]]+#([0-9]+).*/\2/ip' | head -1)"
-          echo "number=$number" >> "$GITHUB_OUTPUT"
-          if [ -z "$number" ]; then
-            echo 'factory_pr=false' >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          issue_json="$(gh issue view "$number" --json labels 2>/dev/null || true)"
-          if [ -z "$issue_json" ]; then
-            echo 'factory_pr=false' >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          delegated="$(printf '%s' "$issue_json" | jq -r '[.labels[].name] | any(. == "factory:delegated")')"
-          if [ "$delegated" = 'true' ]; then
-            echo 'factory_pr=true' >> "$GITHUB_OUTPUT"
-            gh issue edit "$number" --add-label 'factory:review' || true
-          else
-            echo 'factory_pr=false' >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Report deterministic result
-        if: steps.issue.outputs.factory_pr == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
-          RISK: ${{ needs.verify.outputs.risk }}
-          ALLOW_HIGH_RISK: ${{ vars.FACTORY_ALLOW_HIGH_RISK_AUTOMERGE }}
-        run: |
-          if [ "$RISK" = 'high' ] && [ "$ALLOW_HIGH_RISK" != 'true' ]; then
-            gh issue edit "$ISSUE_NUMBER" --add-label 'factory:needs-human' || true
-            gh pr comment "$PR_NUMBER" --body 'Deterministic factory verification passed, but this PR is **high risk**. It will not auto-merge without human approval.'
-          else
-            gh pr comment "$PR_NUMBER" --body "Deterministic factory verification passed. Risk: **$RISK**. Checking whether a clean native Codex review exists for this exact head."
-          fi
-
-      - name: Attempt merge after deterministic verification
-        if: steps.issue.outputs.factory_pr == 'true' && (needs.verify.outputs.risk != 'high' || vars.FACTORY_ALLOW_HIGH_RISK_AUTOMERGE == 'true')
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -euo pipefail
-
-          reviews_json="$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER/reviews?per_page=100")"
-          review_json="$(printf '%s' "$reviews_json" | jq -c --arg sha "$HEAD_SHA" '[.[] | select(.user.login == "chatgpt-codex-connector[bot]" and .user.type == "Bot" and .commit_id == $sha)] | sort_by(.submitted_at) | last // {}')"
-          review_id="$(printf '%s' "$review_json" | jq -r '.id // empty')"
-          review_state="$(printf '%s' "$review_json" | jq -r '.state // empty')"
-          if [ -z "$review_id" ]; then
-            echo 'No native Codex review exists for this head yet.'
-            exit 0
-          fi
-
-          comments_json="$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER/comments?per_page=100")"
-          inline_count="$(printf '%s' "$comments_json" | jq -r --argjson review_id "$review_id" '[.[] | select(.pull_request_review_id == $review_id)] | length')"
-          if [ "${review_state,,}" = 'changes_requested' ] || [ "$inline_count" -gt 0 ]; then
-            echo 'Codex review contains findings; merge remains blocked.'
-            exit 0
-          fi
-
-          gh pr comment "$PR_NUMBER" --body "Deterministic verification and the native Codex review are both clean for head \`$HEAD_SHA\`. Enabling squash auto-merge."
-          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch --match-head-commit "$HEAD_SHA"
-
-  complete:
-    if: github.event.action == 'closed' && github.event.pull_request.merged == true
-    permissions:
-      contents: read
-      issues: write
-    runs-on: ubuntu-latest
-    steps:
-      - name: Mark linked delegated factory issue complete
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          set -euo pipefail
-          number="$(printf '%s' "$PR_BODY" | sed -nE 's/.*(Closes|Fixes|Resolves)[[:space:]]+#([0-9]+).*/\2/ip' | head -1)"
-          [ -n "$number" ] || exit 0
-          labels="$(gh issue view "$number" --json labels --jq '[.labels[].name] | join("\n")' 2>/dev/null || true)"
-          if printf '%s\n' "$labels" | grep -qx 'factory:delegated'; then
-            gh issue edit "$number" --remove-label 'factory:review' --remove-label 'factory:needs-human' --add-label 'factory:complete' || true
-          fi
+          echo "Factory risk classification: $risk"

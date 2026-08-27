@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "latest",
+    "@cloudflare/workers-types": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",

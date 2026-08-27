@@ -1,21 +1,54 @@
 # Factory activation
 
-The workflows are inert until the required secrets/variables exist.
+This factory uses **Codex Cloud through the native GitHub integration and your ChatGPT/Codex subscription** for agentic coding. GitHub Actions is the deterministic control plane for tests, risk classification, merge gating, and release.
 
-## 1. OpenAI
+No `OPENAI_API_KEY` is required for planning, implementation, or review.
 
-Create repository secret `OPENAI_API_KEY`. The Codex GitHub Action uses this through its protected Responses API proxy; coding agents do not receive GitHub/Cloudflare credentials.
+## 1. Connect Codex to GitHub
 
-## 2. Factory policy variables
+In Codex/ChatGPT, connect the GitHub account that owns this repository and configure a Codex Cloud environment for `jeevan-vj/secret-share`.
 
-Repository variables:
+Enable Codex code review for this repository. The factory review workflow listens for reviews submitted by the Codex GitHub integration and will only auto-merge eligible low/medium-risk factory PRs after that independent review has no blocking P0/P1/P2 findings.
+
+## 2. Start factory tasks
+
+Prefer GitHub's **Factory task** issue template. It contains a user-authored `@codex` handoff and instructions to:
+
+1. read the project spec/security contracts,
+2. plan the work,
+3. implement with TDD,
+4. run tests/typecheck/build,
+5. create a PR that closes the issue.
+
+The `@codex` mention is intentionally part of the issue authored by you. GitHub Actions does **not** store or impersonate your ChatGPT login/session.
+
+For an existing issue that does not contain `@codex`, add a user-authored comment such as:
+
+> @codex plan and implement this issue using TDD. Read SPEC.md, SECURITY.md and the threat model first; run pnpm test, pnpm typecheck and pnpm build; then create a PR that closes this issue.
+
+## 3. Factory policy variable
+
+Repository variable:
 
 - `FACTORY_ALLOW_HIGH_RISK_AUTOMERGE=false` initially.
-- `AUTONOMOUS_PRODUCTION=false` initially.
 
-Owner-created issues start automatically. For an issue from anyone else, add `factory:ready` after validating that the request is appropriate.
+High-risk changes include crypto, authentication, D1/schema/migrations, security policy, Wrangler/deployment configuration, and factory/control-plane files. They stop for human approval unless this variable is deliberately enabled.
 
-## 3. GitHub environments
+## 4. Review/fix behavior
+
+Codex Cloud implements the issue and opens the PR. GitHub Actions independently runs tests, typecheck and build and classifies risk.
+
+Codex's native GitHub code review is the independent reviewer. If it submits blocking P0/P1/P2 feedback, the PR is not merged. Because ChatGPT subscription authentication belongs to the user, Actions does not try to start a subscription-backed repair task by impersonating the user. Add a user-authored follow-up such as:
+
+> @codex address all current review findings, add regression tests, run pnpm test/typecheck/build, and update this PR.
+
+After Codex updates the PR and the native review re-runs cleanly, low/medium-risk PRs can be auto-merged.
+
+This is the one remaining human trigger in subscription-only mode. Fully unattended repair loops require an API/service identity rather than a personal ChatGPT subscription.
+
+## 5. GitHub environments and Cloudflare
+
+Deployment remains independent of Codex billing/authentication.
 
 Create `staging` and `production` environments. Put the following secrets in each environment:
 
@@ -25,31 +58,22 @@ Create `staging` and `production` environments. Put the following secrets in eac
 
 Set environment variable `BETTER_AUTH_URL` to the public URL for that environment.
 
-For the initial rollout, add yourself as a required reviewer on `production`. Remove that protection only when you intentionally want zero-touch production deploys.
+For the initial rollout, add yourself as a required reviewer on `production`.
 
-## 4. D1
+## 6. D1
 
 Create two D1 databases and set repository variables:
 
 - `D1_STAGING_DATABASE_ID`
 - `D1_PRODUCTION_DATABASE_ID`
 
-The release workflow materializes the IDs into a temporary Wrangler config, applies `drizzle/*.sql` through `wrangler d1 migrations apply DB --remote`, then deploys.
+The release workflow applies remote D1 migrations and deploys the Worker after a merge to `main`.
 
-## 5. Enable autonomy gradually
+## Safe progression
 
-Recommended progression:
-
-1. Keep both variables false and test issue -> PR -> review/fix.
-2. Confirm low/medium-risk PRs merge automatically.
-3. Configure staging Cloudflare resources and validate releases.
-4. Set `AUTONOMOUS_PRODUCTION=true` while retaining production environment approval.
-5. After a reliable history, optionally remove production approval and/or set `FACTORY_ALLOW_HIGH_RISK_AUTOMERGE=true`.
-
-## Test issue
-
-Create an owner-authored low-risk issue such as:
-
-> Add a short explanatory sentence below the expiry text on the create-secret page. Add/update tests if needed. Do not change encryption, APIs, auth, database or deployment behavior.
-
-The expected path is planning -> implementation -> verification -> draft PR -> independent review -> auto-merge -> release verification.
+1. Connect Codex Cloud + GitHub and enable code review.
+2. Test a low-risk Factory task issue without configuring Cloudflare.
+3. Confirm Codex creates a PR and deterministic CI passes.
+4. Confirm native Codex review triggers the review gate and low/medium-risk auto-merge.
+5. Configure staging Cloudflare resources and validate release.
+6. Add production approval and only later consider autonomous production/high-risk merges.

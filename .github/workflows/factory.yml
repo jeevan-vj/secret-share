@@ -26,7 +26,9 @@ jobs:
       - name: Ensure factory labels
         env:
           GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
         run: |
+          set -euo pipefail
           for spec in \
             'factory:ready|0E8A16|Ready for Codex Cloud factory' \
             'factory:delegated|1D76DB|Delegated to subscription-backed Codex Cloud' \
@@ -34,13 +36,14 @@ jobs:
             'factory:needs-human|D93F0B|Factory needs human decision' \
             'factory:complete|2DA44E|Factory completed'; do
             IFS='|' read -r name color description <<< "$spec"
-            gh label create "$name" --color "$color" --description "$description" --force >/dev/null
+            gh label create "$name" --repo "$REPOSITORY" --color "$color" --description "$description" --force >/dev/null
           done
 
       - name: Validate subscription-backed Codex handoff
         id: gate
         env:
           GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_BODY: ${{ github.event.issue.body }}
@@ -55,17 +58,19 @@ jobs:
 
           if printf '%s' "$handoff" | grep -qi '@codex'; then
             echo 'delegated=true' >> "$GITHUB_OUTPUT"
-            gh issue edit "$ISSUE_NUMBER" --remove-label 'factory:needs-human' --add-label 'factory:delegated' || true
+            gh issue edit "$ISSUE_NUMBER" --repo "$REPOSITORY" --remove-label 'factory:needs-human' --add-label 'factory:delegated' || true
           else
             echo 'delegated=false' >> "$GITHUB_OUTPUT"
-            gh issue edit "$ISSUE_NUMBER" --add-label 'factory:needs-human' || true
-            gh issue comment "$ISSUE_NUMBER" --body $'This factory uses your ChatGPT/Codex subscription through the native GitHub integration, not an API key.\n\nTo delegate this issue, add a **user-authored** comment beginning with `@codex` and ask Codex to plan, implement with TDD, run verification, and create a PR that closes this issue. New issues created from the **Factory task** template include this handoff automatically.'
+            gh issue edit "$ISSUE_NUMBER" --repo "$REPOSITORY" --add-label 'factory:needs-human' || true
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body $'This factory uses your ChatGPT/Codex subscription through the native GitHub integration, not an API key.\n\nTo delegate this issue, add a **user-authored** comment beginning with `@codex` and ask Codex to plan, implement with TDD, run verification, and create a PR that closes this issue. New issues created from the **Factory task** template include this handoff automatically.'
           fi
 
       - name: Record delegation mode
         if: steps.gate.outputs.delegated == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          gh issue comment "$ISSUE_NUMBER" --body $'Factory intake accepted. This user-authored `@codex` handoff uses your ChatGPT/Codex subscription. PR-controlled workflows remain read-only; the trusted default-branch controller handles deterministic gating and eligible merges.'
+          set -euo pipefail
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body $'Factory intake accepted. This user-authored `@codex` handoff uses your ChatGPT/Codex subscription. PR-controlled workflows remain read-only; the trusted default-branch controller handles deterministic gating and eligible merges.'

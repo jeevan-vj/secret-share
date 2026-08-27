@@ -16,26 +16,26 @@
     "db:migrate:local": "wrangler d1 migrations apply secret-share --local"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "latest",
-    "better-auth": "latest",
-    "drizzle-orm": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "vinext": "latest",
-    "zod": "latest"
+    "@better-auth/drizzle-adapter": "1.7.2",
+    "better-auth": "1.7.2",
+    "drizzle-orm": "0.45.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "vinext": "1.0.0-beta.8",
+    "zod": "4.4.3"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "latest",
-    "@cloudflare/workers-types": "latest",
-    "@types/node": "latest",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
-    "@vinext/cloudflare": "latest",
-    "@vitejs/plugin-rsc": "latest",
-    "drizzle-kit": "latest",
-    "typescript": "latest",
-    "vite": "latest",
-    "vitest": "latest",
-    "wrangler": "latest"
+    "@cloudflare/vite-plugin": "1.54.1",
+    "@cloudflare/workers-types": "5.20260827.1",
+    "@types/node": "26.4.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "@vinext/cloudflare": "1.0.0-beta.6",
+    "@vitejs/plugin-rsc": "0.5.34",
+    "drizzle-kit": "0.31.10",
+    "typescript": "7.0.2",
+    "vite": "8.2.2",
+    "vitest": "4.1.11",
+    "wrangler": "4.127.0"
   }
 }

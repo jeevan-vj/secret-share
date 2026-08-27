@@ -1,0 +1,32 @@
+{
+  "protected": {
+    "exact": [],
+    "prefixes": [".github/", ".factory/"]
+  },
+  "high": {
+    "exact": [
+      "SECURITY.md",
+      "docs/THREAT_MODEL.md",
+      "wrangler.jsonc",
+      "src/lib/crypto.ts",
+      "src/lib/share-link.ts",
+      "src/lib/encoding.ts",
+      "src/lib/auth.ts",
+      "src/lib/validation.ts",
+      "src/app/page.tsx",
+      "src/services/secrets.ts"
+    ],
+    "prefixes": [
+      "src/lib/security/",
+      "src/app/s/",
+      "src/app/api/secrets/",
+      "src/app/api/auth/",
+      "src/db/",
+      "drizzle/"
+    ]
+  },
+  "medium": {
+    "exact": ["package.json", "pnpm-lock.yaml"],
+    "prefixes": ["src/app/api/", "src/services/"]
+  }
+}

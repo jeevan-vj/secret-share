@@ -3,6 +3,8 @@ name: Subscription-native Factory Intake
 on:
   issues:
     types: [opened, labeled, reopened]
+  issue_comment:
+    types: [created]
 
 concurrency:
   group: factory-intake-${{ github.event.issue.number }}
@@ -15,9 +17,10 @@ permissions:
 jobs:
   intake:
     if: >-
-      (github.event.action == 'opened' && github.event.issue.user.login == github.repository_owner) ||
-      (github.event.action == 'reopened' && github.event.issue.user.login == github.repository_owner) ||
-      (github.event.action == 'labeled' && github.event.label.name == 'factory:ready')
+      (github.event_name == 'issues' && github.event.action == 'opened' && github.event.issue.user.login == github.repository_owner) ||
+      (github.event_name == 'issues' && github.event.action == 'reopened' && github.event.issue.user.login == github.repository_owner) ||
+      (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'factory:ready') ||
+      (github.event_name == 'issue_comment' && github.event.action == 'created' && github.event.issue.pull_request == null && github.event.comment.user.login == github.repository_owner && contains(github.event.comment.body, '@codex'))
     runs-on: ubuntu-latest
     steps:
       - name: Ensure factory labels
@@ -38,12 +41,21 @@ jobs:
         id: gate
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_BODY: ${{ github.event.issue.body }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          if printf '%s' "$ISSUE_BODY" | grep -qi '@codex'; then
+          set -euo pipefail
+          if [ "$EVENT_NAME" = 'issue_comment' ]; then
+            handoff="$COMMENT_BODY"
+          else
+            handoff="$ISSUE_BODY"
+          fi
+
+          if printf '%s' "$handoff" | grep -qi '@codex'; then
             echo 'delegated=true' >> "$GITHUB_OUTPUT"
-            gh issue edit "$ISSUE_NUMBER" --add-label 'factory:delegated' || true
+            gh issue edit "$ISSUE_NUMBER" --remove-label 'factory:needs-human' --add-label 'factory:delegated' || true
           else
             echo 'delegated=false' >> "$GITHUB_OUTPUT"
             gh issue edit "$ISSUE_NUMBER" --add-label 'factory:needs-human' || true
@@ -56,4 +68,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          gh issue comment "$ISSUE_NUMBER" --body $'Factory intake accepted. The `@codex` mention in this user-authored issue is the subscription-backed agent trigger. GitHub Actions will take over deterministic verification and risk/review gating when Codex opens the PR.'
+          gh issue comment "$ISSUE_NUMBER" --body $'Factory intake accepted. This user-authored `@codex` handoff uses your ChatGPT/Codex subscription. PR-controlled workflows remain read-only; the trusted default-branch controller handles deterministic gating and eligible merges.'

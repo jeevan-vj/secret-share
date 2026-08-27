@@ -1,6 +1,6 @@
 {
   "protected": {
-    "exact": [],
+    "exact": ["AGENTS.md"],
     "prefixes": [".github/", ".factory/"]
   },
   "high": {

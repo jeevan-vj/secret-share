@@ -11,6 +11,10 @@ export type EncryptedSecret = {
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+function asArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
 export async function encryptSecret(plaintext: string): Promise<EncryptedSecret> {
   const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -27,11 +31,17 @@ export async function encryptSecret(plaintext: string): Promise<EncryptedSecret>
 }
 
 export async function decryptSecret(ciphertext: string, iv: string, keyValue: string): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", base64UrlToBytes(keyValue), { name: "AES-GCM" }, false, ["decrypt"]);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    asArrayBuffer(base64UrlToBytes(keyValue)),
+    { name: "AES-GCM" },
+    false,
+    ["decrypt"],
+  );
   const plaintext = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: base64UrlToBytes(iv) },
+    { name: "AES-GCM", iv: asArrayBuffer(base64UrlToBytes(iv)) },
     key,
-    base64UrlToBytes(ciphertext),
+    asArrayBuffer(base64UrlToBytes(ciphertext)),
   );
   return decoder.decode(plaintext);
 }

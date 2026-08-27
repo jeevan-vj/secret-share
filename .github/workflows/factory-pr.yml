@@ -4,11 +4,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, closed]
 
+# Untrusted PR code runs only in the read-only verify job. Jobs that receive
+# write-capable tokens use fresh runners and never checkout or execute PR code.
 permissions:
   contents: read
-  checks: read
-  issues: write
-  pull-requests: write
 
 concurrency:
   group: factory-pr-${{ github.event.pull_request.number }}
@@ -18,12 +17,12 @@ jobs:
   verify:
     if: github.event.action != 'closed' && github.event.pull_request.draft == false
     name: Factory deterministic gate
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
       risk: ${{ steps.risk.outputs.risk }}
-      linked_issue: ${{ steps.issue.outputs.number }}
-      factory_pr: ${{ steps.issue.outputs.factory_pr }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -40,7 +39,35 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm build
 
-      - name: Resolve linked factory issue
+      - name: Classify risk
+        id: risk
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          risk='low'
+          while IFS= read -r file; do
+            case "$file" in
+              src/lib/crypto.ts|src/lib/auth.ts|src/lib/validation.ts|src/lib/security/*|src/lib/security/**|src/app/page.tsx|src/app/s/*|src/app/s/**|src/app/api/secrets/*|src/app/api/secrets/**|src/app/api/auth/*|src/app/api/auth/**|src/services/secrets.ts|src/db/*|src/db/**|drizzle/*|drizzle/**|SECURITY.md|docs/THREAT_MODEL.md|wrangler.jsonc|.github/*|.github/**|.factory/*|.factory/**)
+                risk='high'; break ;;
+              src/app/api/*|src/app/api/**|src/services/*|src/services/**|package.json|pnpm-lock.yaml)
+                [ "$risk" = 'low' ] && risk='medium' ;;
+            esac
+          done < <(git diff --name-only "$BASE_SHA...$HEAD_SHA")
+          echo "risk=$risk" >> "$GITHUB_OUTPUT"
+
+  control:
+    if: github.event.action != 'closed' && github.event.pull_request.draft == false
+    needs: verify
+    name: Factory control gate
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve linked delegated factory issue
         id: issue
         env:
           GH_TOKEN: ${{ github.token }}
@@ -68,31 +95,13 @@ jobs:
             echo 'factory_pr=false' >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Classify risk
-        id: risk
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -euo pipefail
-          risk='low'
-          while IFS= read -r file; do
-            case "$file" in
-              src/lib/crypto.ts|src/lib/auth.ts|src/app/api/auth/*|src/app/api/auth/**|src/db/*|drizzle/*|SECURITY.md|docs/THREAT_MODEL.md|wrangler.jsonc|.github/*|.factory/*)
-                risk='high'; break ;;
-              src/app/api/*|src/services/*|src/lib/validation.ts|package.json|pnpm-lock.yaml)
-                [ "$risk" = 'low' ] && risk='medium' ;;
-            esac
-          done < <(git diff --name-only "$BASE_SHA...$HEAD_SHA")
-          echo "risk=$risk" >> "$GITHUB_OUTPUT"
-
-      - name: Report factory gate
+      - name: Report deterministic result
         if: steps.issue.outputs.factory_pr == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
-          RISK: ${{ steps.risk.outputs.risk }}
+          RISK: ${{ needs.verify.outputs.risk }}
           ALLOW_HIGH_RISK: ${{ vars.FACTORY_ALLOW_HIGH_RISK_AUTOMERGE }}
         run: |
           if [ "$RISK" = 'high' ] && [ "$ALLOW_HIGH_RISK" != 'true' ]; then
@@ -103,7 +112,7 @@ jobs:
           fi
 
       - name: Attempt merge after deterministic verification
-        if: steps.issue.outputs.factory_pr == 'true' && (steps.risk.outputs.risk != 'high' || vars.FACTORY_ALLOW_HIGH_RISK_AUTOMERGE == 'true')
+        if: steps.issue.outputs.factory_pr == 'true' && (needs.verify.outputs.risk != 'high' || vars.FACTORY_ALLOW_HIGH_RISK_AUTOMERGE == 'true')
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
@@ -113,7 +122,7 @@ jobs:
           set -euo pipefail
 
           reviews_json="$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER/reviews?per_page=100")"
-          review_json="$(printf '%s' "$reviews_json" | jq -c --arg sha "$HEAD_SHA" '[.[] | select(.user.login == "chatgpt-codex-connector[bot]" and .commit_id == $sha)] | sort_by(.submitted_at) | last // {}')"
+          review_json="$(printf '%s' "$reviews_json" | jq -c --arg sha "$HEAD_SHA" '[.[] | select(.user.login == "chatgpt-codex-connector[bot]" and .user.type == "Bot" and .commit_id == $sha)] | sort_by(.submitted_at) | last // {}')"
           review_id="$(printf '%s' "$review_json" | jq -r '.id // empty')"
           review_state="$(printf '%s' "$review_json" | jq -r '.state // empty')"
           if [ -z "$review_id" ]; then
@@ -129,10 +138,13 @@ jobs:
           fi
 
           gh pr comment "$PR_NUMBER" --body "Deterministic verification and the native Codex review are both clean for head \`$HEAD_SHA\`. Enabling squash auto-merge."
-          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
+          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch --match-head-commit "$HEAD_SHA"
 
   complete:
     if: github.event.action == 'closed' && github.event.pull_request.merged == true
+    permissions:
+      contents: read
+      issues: write
     runs-on: ubuntu-latest
     steps:
       - name: Mark linked delegated factory issue complete

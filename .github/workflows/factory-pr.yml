@@ -112,7 +112,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          review_json="$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER/reviews" --jq --arg sha "$HEAD_SHA" '[.[] | select(.user.login == "chatgpt-codex-connector[bot]" and .commit_id == $sha)] | sort_by(.submitted_at) | last // {}')"
+          reviews_json="$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER/reviews?per_page=100")"
+          review_json="$(printf '%s' "$reviews_json" | jq -c --arg sha "$HEAD_SHA" '[.[] | select(.user.login == "chatgpt-codex-connector[bot]" and .commit_id == $sha)] | sort_by(.submitted_at) | last // {}')"
           review_id="$(printf '%s' "$review_json" | jq -r '.id // empty')"
           review_state="$(printf '%s' "$review_json" | jq -r '.state // empty')"
           if [ -z "$review_id" ]; then
@@ -120,7 +121,8 @@ jobs:
             exit 0
           fi
 
-          inline_count="$(gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/comments" --jq --argjson review_id "$review_id" '[.[] | select(.pull_request_review_id == $review_id)] | length' | awk '{s+=$1} END {print s+0}')"
+          comments_json="$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER/comments?per_page=100")"
+          inline_count="$(printf '%s' "$comments_json" | jq -r --argjson review_id "$review_id" '[.[] | select(.pull_request_review_id == $review_id)] | length')"
           if [ "${review_state,,}" = 'changes_requested' ] || [ "$inline_count" -gt 0 ]; then
             echo 'Codex review contains findings; merge remains blocked.'
             exit 0

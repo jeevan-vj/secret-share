@@ -3,17 +3,6 @@ name: Release to Cloudflare
 on:
   push:
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      sha:
-        description: Commit SHA to release
-        required: false
-        type: string
-      production:
-        description: Deploy production after staging
-        required: true
-        default: false
-        type: boolean
 
 concurrency:
   group: secret-share-release
@@ -28,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.sha || github.sha }}
+          ref: ${{ github.sha }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -54,7 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.sha || github.sha }}
+          ref: ${{ github.sha }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -89,7 +78,7 @@ jobs:
       (needs.staging.result == 'success' || needs.staging.result == 'skipped') &&
       vars.AUTONOMOUS_PRODUCTION == 'true' &&
       vars.D1_PRODUCTION_DATABASE_ID != '' &&
-      (github.event_name == 'push' || inputs.production == true)
+      github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -103,7 +92,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.sha || github.sha }}
+          ref: ${{ github.sha }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:

@@ -9,7 +9,6 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  actions: write
   contents: write
   issues: write
   pull-requests: write
@@ -22,19 +21,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      GH_TOKEN: ${{ github.token }}
       ISSUE_NUMBER: ${{ github.event.issue.number }}
       FACTORY_BRANCH: factory/issue-${{ github.event.issue.number }}
       ALLOW_HIGH_RISK: ${{ vars.FACTORY_ALLOW_HIGH_RISK_AUTOMERGE }}
-      AUTONOMOUS_PRODUCTION: ${{ vars.AUTONOMOUS_PRODUCTION }}
 
     steps:
       - uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Ensure factory labels
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           for spec in \
             'factory:ready|0E8A16|Ready for autonomous factory' \
@@ -49,6 +49,8 @@ jobs:
 
       - name: Prepare branch
         id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           existing_pr="$(gh pr list --head "$FACTORY_BRANCH" --state open --json number --jq '.[0].number // empty')"
           if [ -n "$existing_pr" ]; then
@@ -66,6 +68,8 @@ jobs:
 
       - name: Prepare issue request
         if: steps.gate.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p .factory-run docs/specs
           jq -r '"# Factory issue\n\nNumber: \(.issue.number)\nTitle: \(.issue.title)\nAuthor: \(.issue.user.login)\n\n## Body\n\n\(.issue.body // "")"' "$GITHUB_EVENT_PATH" > .factory-run/current-issue.md
@@ -73,10 +77,12 @@ jobs:
 
       - if: steps.gate.outputs.run == 'true'
         uses: pnpm/action-setup@v4
+
       - if: steps.gate.outputs.run == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
       - name: Install existing dependencies without changing repository state
         if: steps.gate.outputs.run == 'true'
         run: pnpm install --no-frozen-lockfile --lockfile=false
@@ -94,6 +100,8 @@ jobs:
 
       - name: Enforce planner scope
         if: steps.gate.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           test -f "docs/specs/issue-${ISSUE_NUMBER}.md"
           unexpected="$(git status --porcelain --untracked-files=all | grep -vE "^\?\? \.factory-run/|^\?\? docs/specs/issue-${ISSUE_NUMBER}\.md$" || true)"
@@ -157,17 +165,24 @@ jobs:
 
       - name: Commit and push implementation
         if: steps.gate.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name 'secret-share-factory[bot]'
           git config user.email 'secret-share-factory[bot]@users.noreply.github.com'
           git add -A -- src tests docs drizzle package.json pnpm-lock.yaml wrangler.jsonc SPEC.md SECURITY.md 2>/dev/null || true
           git diff --cached --quiet && { echo 'Factory produced no implementation changes.'; exit 1; }
           git commit -m "feat: implement issue #${ISSUE_NUMBER}"
+          gh auth setup-git
           git push -u origin "$FACTORY_BRANCH"
+          git config --local --unset-all credential.https://github.com.helper || true
+          git config --local --unset-all credential.helper || true
 
       - name: Open draft PR
         if: steps.gate.outputs.run == 'true'
         id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           cat > .factory-run/pr-body.md <<EOF
           Closes #${ISSUE_NUMBER}
@@ -199,6 +214,7 @@ jobs:
         if: steps.gate.outputs.run == 'true'
         id: review1
         env:
+          GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: |
           jq -e . .factory-run/review1.json >/dev/null
@@ -219,6 +235,8 @@ jobs:
 
       - name: Verify and commit review fixes
         if: steps.gate.outputs.run == 'true' && steps.review1.outputs.verdict == 'changes_requested'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           pnpm install --no-frozen-lockfile
           pnpm test && pnpm typecheck && pnpm build
@@ -226,7 +244,10 @@ jobs:
           test -z "$forbidden" || { echo "$forbidden"; exit 1; }
           git add -A -- src tests docs drizzle package.json pnpm-lock.yaml wrangler.jsonc SPEC.md SECURITY.md 2>/dev/null || true
           git commit -m "fix: address factory review for #${ISSUE_NUMBER}" || true
+          gh auth setup-git
           git push origin "$FACTORY_BRANCH"
+          git config --local --unset-all credential.https://github.com.helper || true
+          git config --local --unset-all credential.helper || true
 
       - name: Independent reviewer agent after fixes
         if: steps.gate.outputs.run == 'true' && steps.review1.outputs.verdict == 'changes_requested'
@@ -245,6 +266,7 @@ jobs:
         if: steps.gate.outputs.run == 'true'
         id: final_review
         env:
+          GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: |
           verdict="${{ steps.review1.outputs.verdict }}"
@@ -263,7 +285,7 @@ jobs:
           risk='low'
           while IFS= read -r file; do
             case "$file" in
-              src/lib/crypto.ts|src/lib/auth.ts|src/db/*|drizzle/*|SECURITY.md|docs/THREAT_MODEL.md|wrangler.jsonc|.github/*|.factory/*)
+              src/lib/crypto.ts|src/lib/auth.ts|src/app/api/auth/*|src/app/api/auth/**|src/db/*|drizzle/*|SECURITY.md|docs/THREAT_MODEL.md|wrangler.jsonc|.github/*|.factory/*)
                 risk='high'; break ;;
               src/app/api/*|src/services/*|src/lib/validation.ts|package.json|pnpm-lock.yaml)
                 [ "$risk" = 'low' ] && risk='medium' ;;
@@ -281,6 +303,7 @@ jobs:
           steps.gate.outputs.run == 'true' &&
           (steps.final_review.outputs.verdict != 'pass' || steps.risk.outputs.merge_allowed != 'true')
         env:
+          GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: |
           gh issue edit "$ISSUE_NUMBER" --remove-label 'factory:review' --add-label 'factory:needs-human' || true
@@ -292,22 +315,11 @@ jobs:
           steps.gate.outputs.run == 'true' &&
           steps.final_review.outputs.verdict == 'pass' &&
           steps.risk.outputs.merge_allowed == 'true'
-        id: merge
         env:
+          GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: |
           gh pr ready "$PR_NUMBER"
           gh pr comment "$PR_NUMBER" --body "All factory gates passed. Risk: **${{ steps.risk.outputs.risk }}**. Merging autonomously."
           gh pr merge "$PR_NUMBER" --squash --delete-branch
-          merge_sha="$(gh pr view "$PR_NUMBER" --json mergeCommit --jq '.mergeCommit.oid')"
-          echo "sha=$merge_sha" >> "$GITHUB_OUTPUT"
           gh issue edit "$ISSUE_NUMBER" --remove-label 'factory:review' --add-label 'factory:complete' || true
-
-      - name: Dispatch release pipeline
-        if: steps.merge.outputs.sha != ''
-        env:
-          MERGE_SHA: ${{ steps.merge.outputs.sha }}
-        run: |
-          production='false'
-          [ "$AUTONOMOUS_PRODUCTION" = 'true' ] && production='true'
-          gh workflow run release.yml -f sha="$MERGE_SHA" -f production="$production"

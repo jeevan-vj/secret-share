@@ -1,0 +1,108 @@
+name: Factory Codex Review Gate
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: factory-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    if: contains(github.event.review.user.login, 'codex')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve factory issue and review findings
+        id: review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEW_ID: ${{ github.event.review.id }}
+          REVIEW_BODY: ${{ github.event.review.body }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          issue="$(printf '%s' "$PR_BODY" | sed -nE 's/.*(Closes|Fixes|Resolves)[[:space:]]+#([0-9]+).*/\2/ip' | head -1)"
+          echo "issue=$issue" >> "$GITHUB_OUTPUT"
+          if [ -z "$issue" ]; then
+            echo 'factory_pr=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          labels="$(gh issue view "$issue" --json labels --jq '[.labels[].name] | join("\n")' 2>/dev/null || true)"
+          if ! printf '%s\n' "$labels" | grep -Eq '^factory:(ready|delegated|review|needs-human)$'; then
+            echo 'factory_pr=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo 'factory_pr=true' >> "$GITHUB_OUTPUT"
+
+          comments="$(gh api --paginate "repos/${{ github.repository }}/pulls/$PR_NUMBER/comments" --jq ".[] | select(.pull_request_review_id == $REVIEW_ID) | .body" 2>/dev/null || true)"
+          combined="${REVIEW_BODY}"$'\n'"${comments}"
+          if printf '%s' "$combined" | grep -Eq '(^|[^A-Z0-9])P[012]([^A-Z0-9]|$)|changes requested|blocking'; then
+            echo 'blocking=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'blocking=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Classify risk
+        if: steps.review.outputs.factory_pr == 'true'
+        id: risk
+        run: |
+          risk='low'
+          git fetch origin "${{ github.event.pull_request.base.ref }}" "${{ github.event.pull_request.head.ref }}"
+          while IFS= read -r file; do
+            case "$file" in
+              src/lib/crypto.ts|src/lib/auth.ts|src/app/api/auth/*|src/app/api/auth/**|src/db/*|drizzle/*|SECURITY.md|docs/THREAT_MODEL.md|wrangler.jsonc|.github/*|.factory/*)
+                risk='high'; break ;;
+              src/app/api/*|src/services/*|src/lib/validation.ts|package.json|pnpm-lock.yaml)
+                [ "$risk" = 'low' ] && risk='medium' ;;
+            esac
+          done < <(git diff --name-only "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}")
+          echo "risk=$risk" >> "$GITHUB_OUTPUT"
+
+      - name: Escalate blocking review
+        if: steps.review.outputs.factory_pr == 'true' && steps.review.outputs.blocking == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ISSUE_NUMBER: ${{ steps.review.outputs.issue }}
+        run: |
+          gh issue edit "$ISSUE_NUMBER" --add-label 'factory:needs-human' || true
+          gh pr comment "$PR_NUMBER" --body $'Native Codex review found blocking feedback. Because subscription authentication belongs to your ChatGPT account, GitHub Actions does not impersonate that account to start the repair task. Add a **user-authored** comment such as `@codex address all current review findings, add regression tests, run pnpm test/typecheck/build, and update this PR`. The next Codex review will re-run this gate.'
+
+      - name: Escalate high-risk merge
+        if: >-
+          steps.review.outputs.factory_pr == 'true' &&
+          steps.review.outputs.blocking == 'false' &&
+          steps.risk.outputs.risk == 'high' &&
+          vars.FACTORY_ALLOW_HIGH_RISK_AUTOMERGE != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ISSUE_NUMBER: ${{ steps.review.outputs.issue }}
+        run: |
+          gh issue edit "$ISSUE_NUMBER" --add-label 'factory:needs-human' || true
+          gh pr comment "$PR_NUMBER" --body 'Native Codex review has no blocking findings, but deterministic classification marks this PR **high risk**. Human merge approval is required.'
+
+      - name: Merge reviewed low/medium-risk factory PR
+        if: >-
+          steps.review.outputs.factory_pr == 'true' &&
+          steps.review.outputs.blocking == 'false' &&
+          (steps.risk.outputs.risk != 'high' || vars.FACTORY_ALLOW_HIGH_RISK_AUTOMERGE == 'true')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ISSUE_NUMBER: ${{ steps.review.outputs.issue }}
+        run: |
+          gh pr comment "$PR_NUMBER" --body "Native Codex review has no blocking P0/P1/P2 findings and the risk gate is **${{ steps.risk.outputs.risk }}**. Enabling squash auto-merge; required repository checks must still pass."
+          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
+          gh issue edit "$ISSUE_NUMBER" --remove-label 'factory:review' --remove-label 'factory:needs-human' --add-label 'factory:complete' || true

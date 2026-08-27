@@ -16,9 +16,8 @@ concurrency:
 
 jobs:
   gate:
-    # Trust only the native ChatGPT/Codex GitHub App identity. A fuzzy
-    # "contains codex" check would let similarly named accounts trigger merges.
-    if: github.event.review.user.login == 'chatgpt-codex-connector[bot]'
+    # Trust only the native ChatGPT/Codex GitHub App identity.
+    if: github.event.review.user.login == 'chatgpt-codex-connector[bot]' && github.event.review.user.type == 'Bot'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -31,12 +30,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          REPOSITORY_OWNER: ${{ github.repository_owner }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REVIEW_ID: ${{ github.event.review.id }}
           REVIEW_STATE: ${{ github.event.review.state }}
           REVIEW_COMMIT: ${{ github.event.review.commit_id }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           set -euo pipefail
@@ -48,7 +46,7 @@ jobs:
             exit 0
           fi
 
-          issue_json="$(gh issue view "$issue" --json labels,author 2>/dev/null || true)"
+          issue_json="$(gh issue view "$issue" --json labels 2>/dev/null || true)"
           if [ -z "$issue_json" ]; then
             echo 'factory_pr=false' >> "$GITHUB_OUTPUT"
             exit 0
@@ -61,17 +59,19 @@ jobs:
           fi
           echo 'factory_pr=true' >> "$GITHUB_OUTPUT"
 
-          # A review of an older commit can never authorize the current head.
-          if [ "$REVIEW_COMMIT" != "$HEAD_SHA" ]; then
+          # Bind review approval to both the event head and the PR's current live
+          # head. A push after review submission must force a fresh review.
+          live_head="$(gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid')"
+          echo "live_head=$live_head" >> "$GITHUB_OUTPUT"
+          if [ "$REVIEW_COMMIT" != "$EVENT_HEAD_SHA" ] || [ "$REVIEW_COMMIT" != "$live_head" ]; then
             echo 'stale=true' >> "$GITHUB_OUTPUT"
             echo 'blocking=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo 'stale=false' >> "$GITHUB_OUTPUT"
 
-          # Native Codex review comments are findings. Treat any inline finding
-          # as blocking rather than trying to infer severity from prose such as
-          # "no P0/P1/P2 findings", which can create false positives/negatives.
+          # Fail closed: if GitHub cannot return all review comments, this step
+          # fails and no write/merge step runs.
           inline_count="$(gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/comments" --jq "[.[] | select(.pull_request_review_id == $REVIEW_ID)] | length" | awk '{s+=$1} END {print s+0}')"
           if [ "${REVIEW_STATE,,}" = 'changes_requested' ] || [ "$inline_count" -gt 0 ]; then
             echo 'blocking=true' >> "$GITHUB_OUTPUT"
@@ -90,9 +90,9 @@ jobs:
           risk='low'
           while IFS= read -r file; do
             case "$file" in
-              src/lib/crypto.ts|src/lib/auth.ts|src/app/api/auth/*|src/app/api/auth/**|src/db/*|drizzle/*|SECURITY.md|docs/THREAT_MODEL.md|wrangler.jsonc|.github/*|.factory/*)
+              src/lib/crypto.ts|src/lib/auth.ts|src/lib/validation.ts|src/lib/security/*|src/lib/security/**|src/app/page.tsx|src/app/s/*|src/app/s/**|src/app/api/secrets/*|src/app/api/secrets/**|src/app/api/auth/*|src/app/api/auth/**|src/services/secrets.ts|src/db/*|src/db/**|drizzle/*|drizzle/**|SECURITY.md|docs/THREAT_MODEL.md|wrangler.jsonc|.github/*|.github/**|.factory/*|.factory/**)
                 risk='high'; break ;;
-              src/app/api/*|src/services/*|src/lib/validation.ts|package.json|pnpm-lock.yaml)
+              src/app/api/*|src/app/api/**|src/services/*|src/services/**|package.json|pnpm-lock.yaml)
                 [ "$risk" = 'low' ] && risk='medium' ;;
             esac
           done < <(git diff --name-only "$BASE_SHA...$HEAD_SHA")
@@ -120,7 +120,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          gh pr comment "$PR_NUMBER" --body 'Ignoring this Codex review for merge purposes because it reviewed an older PR commit. A fresh Codex review of the current head is required.'
+          gh pr comment "$PR_NUMBER" --body 'Ignoring this Codex review for merge purposes because it did not review the PR current head. A fresh Codex review is required.'
 
       - name: Escalate blocking review
         if: steps.review.outputs.factory_pr == 'true' && steps.review.outputs.stale == 'false' && steps.review.outputs.blocking == 'true'
@@ -166,6 +166,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEWED_HEAD_SHA: ${{ github.event.review.commit_id }}
         run: |
           gh pr comment "$PR_NUMBER" --body "Native Codex review is clean, deterministic verification passed for this exact head, and risk is **${{ steps.risk.outputs.risk }}**. Enabling squash auto-merge."
-          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
+          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch --match-head-commit "$REVIEWED_HEAD_SHA"

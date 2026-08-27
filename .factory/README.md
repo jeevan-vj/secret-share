@@ -12,8 +12,8 @@ Owner-created issues start automatically. Other issues require the `factory:read
 
 - Agents never receive GitHub or Cloudflare deployment credentials.
 - Codex runs with workspace/read-only permission profiles; GitHub Actions owns commits, PRs, merges and deployments.
-- A generated PR gets at most two automated repair cycles and three independent reviews.
-- P0/P1 findings block merge.
+- A generated PR gets at most one automated repair cycle and two independent reviews before escalation.
+- P0/P1/P2 findings block merge.
 - High-risk changes block auto-merge unless repository variable `FACTORY_ALLOW_HIGH_RISK_AUTOMERGE=true`.
 - Production deploy is enabled only when repository variable `AUTONOMOUS_PRODUCTION=true`.
 - Production credentials live only in the GitHub `production` environment.

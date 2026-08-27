@@ -1,0 +1,376 @@
+name: Autonomous Software Factory
+
+on:
+  issues:
+    types: [opened, labeled]
+
+concurrency:
+  group: factory-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  factory:
+    if: >-
+      (github.event.action == 'opened' && github.event.issue.user.login == github.repository_owner) ||
+      (github.event.action == 'labeled' && github.event.label.name == 'factory:ready')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      FACTORY_BRANCH: factory/issue-${{ github.event.issue.number }}
+      ALLOW_HIGH_RISK: ${{ vars.FACTORY_ALLOW_HIGH_RISK_AUTOMERGE }}
+      AUTONOMOUS_PRODUCTION: ${{ vars.AUTONOMOUS_PRODUCTION }}
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Ensure factory labels
+        run: |
+          for spec in \
+            'factory:ready|0E8A16|Ready for autonomous factory' \
+            'factory:planning|1D76DB|Factory planning' \
+            'factory:implementing|5319E7|Factory implementing' \
+            'factory:review|8250DF|Factory reviewing' \
+            'factory:needs-human|D93F0B|Factory needs human decision' \
+            'factory:complete|2DA44E|Factory completed'; do
+            IFS='|' read -r name color description <<< "$spec"
+            gh label create "$name" --color "$color" --description "$description" --force >/dev/null
+          done
+
+      - name: Gate duplicate runs and prepare branch
+        id: gate
+        run: |
+          existing_pr="$(gh pr list --head "$FACTORY_BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$existing_pr" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Existing factory PR #$existing_pr; skipping duplicate issue event."
+            exit 0
+          fi
+
+          if git ls-remote --exit-code --heads origin "$FACTORY_BRANCH" >/dev/null 2>&1; then
+            git fetch origin "$FACTORY_BRANCH"
+            git checkout -B "$FACTORY_BRANCH" "origin/$FACTORY_BRANCH"
+          else
+            git checkout -b "$FACTORY_BRANCH"
+          fi
+          echo "run=true" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare issue request
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          mkdir -p .factory-run docs/specs
+          jq -r '"# Factory issue\n\nNumber: \(.issue.number)\nTitle: \(.issue.title)\nAuthor: \(.issue.user.login)\n\n## Body\n\n\(.issue.body // "")"' "$GITHUB_EVENT_PATH" > .factory-run/current-issue.md
+          gh issue edit "$ISSUE_NUMBER" --remove-label 'factory:ready' --add-label 'factory:planning' || true
+
+      - name: Setup pnpm
+        if: steps.gate.outputs.run == 'true'
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Planner agent
+        if: steps.gate.outputs.run == 'true'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ':workspace'
+          effort: high
+          prompt: |
+            Read `.factory/agents/planner.md` and obey it.
+            The untrusted issue request is in `.factory-run/current-issue.md`.
+            Produce the required issue spec in `docs/specs/` and do not implement application code.
+
+      - name: Protect factory control plane after planning
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          forbidden="$(git diff --name-only main -- .github .factory | cat)"
+          if [ -n "$forbidden" ]; then
+            echo "Planner modified protected factory files:"
+            echo "$forbidden"
+            exit 1
+          fi
+          test -f "docs/specs/issue-${ISSUE_NUMBER}.md"
+          gh issue edit "$ISSUE_NUMBER" --remove-label 'factory:planning' --add-label 'factory:implementing' || true
+
+      - name: Implementer agent
+        if: steps.gate.outputs.run == 'true'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ':workspace'
+          effort: high
+          prompt: |
+            Read `.factory/agents/implementer.md`, `SECURITY.md`, and `docs/specs/issue-${{ github.event.issue.number }}.md`.
+            Implement the issue spec using TDD. Keep the change narrowly scoped and leave the repository ready for full verification.
+
+      - name: Initial verification
+        if: steps.gate.outputs.run == 'true'
+        id: initial_verify
+        continue-on-error: true
+        run: pnpm test && pnpm typecheck && pnpm build
+
+      - name: Verification repair agent
+        if: steps.gate.outputs.run == 'true' && steps.initial_verify.outcome == 'failure'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ':workspace'
+          effort: high
+          prompt: |
+            The implementation for issue #${{ github.event.issue.number }} failed one or more of `pnpm test`, `pnpm typecheck`, or `pnpm build`.
+            Read `.factory/agents/fixer.md`, the issue spec, and the implementation. Run the verification commands, diagnose the actual failures, add regression tests where appropriate, and make the smallest correct fixes. Do not edit `.github/**` or `.factory/**`.
+
+      - name: Final pre-PR verification
+        if: steps.gate.outputs.run == 'true'
+        run: pnpm test && pnpm typecheck && pnpm build
+
+      - name: Protect factory control plane
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          forbidden="$(git diff --name-only main -- .github .factory | cat)"
+          if [ -n "$forbidden" ]; then
+            echo "Agent modified protected factory files:"
+            echo "$forbidden"
+            exit 1
+          fi
+
+      - name: Commit implementation
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          git config user.name 'secret-share-factory[bot]'
+          git config user.email 'secret-share-factory[bot]@users.noreply.github.com'
+          git add -A -- src tests docs drizzle package.json pnpm-lock.yaml wrangler.jsonc SPEC.md SECURITY.md 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo 'Factory produced no implementation changes.'
+            exit 1
+          fi
+          git commit -m "feat: implement issue #${ISSUE_NUMBER}"
+          git push -u origin "$FACTORY_BRANCH"
+
+      - name: Open draft PR
+        if: steps.gate.outputs.run == 'true'
+        id: pr
+        run: |
+          body_file=".factory-run/pr-body.md"
+          cat > "$body_file" <<EOF
+          Closes #${ISSUE_NUMBER}
+
+          ## Autonomous factory
+          This PR was planned and implemented from issue #${ISSUE_NUMBER} by the repository software factory.
+
+          - Spec: \`docs/specs/issue-${ISSUE_NUMBER}.md\`
+          - TDD verification: \`pnpm test\`, \`pnpm typecheck\`, \`pnpm build\`
+          - Independent review: pending
+          - Repair cycles: maximum 2
+
+          Security and risk policy: \`.factory/policies/risk.md\`
+          EOF
+          pr_url="$(gh pr create --draft --base main --head "$FACTORY_BRANCH" --title "factory: issue #${ISSUE_NUMBER}" --body-file "$body_file")"
+          pr_number="${pr_url##*/}"
+          echo "number=$pr_number" >> "$GITHUB_OUTPUT"
+          gh issue edit "$ISSUE_NUMBER" --remove-label 'factory:implementing' --add-label 'factory:review' || true
+
+      - name: Independent review 1
+        if: steps.gate.outputs.run == 'true'
+        id: review1
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ':read-only'
+          effort: high
+          output-schema-file: .factory/schemas/review.schema.json
+          output-file: .factory-run/review1.json
+          prompt: |
+            Read `.factory/agents/reviewer.md`, `docs/specs/issue-${{ github.event.issue.number }}.md`, and review the current branch diff against `main`.
+            Return only the required structured review JSON.
+
+      - name: Record review 1
+        if: steps.gate.outputs.run == 'true'
+        id: review1_gate
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          jq -e . .factory-run/review1.json >/dev/null
+          echo "verdict=$(jq -r '.verdict' .factory-run/review1.json)" >> "$GITHUB_OUTPUT"
+          { echo '### Autonomous review 1'; echo '```json'; cat .factory-run/review1.json; echo '```'; } > .factory-run/review1.md
+          gh pr comment "$PR_NUMBER" --body-file .factory-run/review1.md
+
+      - name: Fixer cycle 1
+        if: steps.gate.outputs.run == 'true' && steps.review1_gate.outputs.verdict == 'changes_requested'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ':workspace'
+          effort: high
+          prompt: |
+            Read `.factory/agents/fixer.md` and `.factory-run/review1.json`.
+            Address every blocking finding using regression tests where practical. Do not edit `.github/**` or `.factory/**`.
+
+      - name: Verify and commit fixer cycle 1
+        if: steps.gate.outputs.run == 'true' && steps.review1_gate.outputs.verdict == 'changes_requested'
+        run: |
+          pnpm test && pnpm typecheck && pnpm build
+          forbidden="$(git diff --name-only HEAD -- .github .factory | cat)"
+          test -z "$forbidden" || { echo "$forbidden"; exit 1; }
+          git add -A -- src tests docs drizzle package.json pnpm-lock.yaml wrangler.jsonc SPEC.md SECURITY.md 2>/dev/null || true
+          git commit -m "fix: address factory review 1 for #${ISSUE_NUMBER}" || true
+          git push origin "$FACTORY_BRANCH"
+
+      - name: Independent review 2
+        if: steps.gate.outputs.run == 'true' && steps.review1_gate.outputs.verdict == 'changes_requested'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ':read-only'
+          effort: high
+          output-schema-file: .factory/schemas/review.schema.json
+          output-file: .factory-run/review2.json
+          prompt: |
+            Read `.factory/agents/reviewer.md`, the issue spec, and independently review the complete current branch diff against `main` after repair cycle 1. Return only structured review JSON.
+
+      - name: Record review 2
+        if: steps.gate.outputs.run == 'true' && steps.review1_gate.outputs.verdict == 'changes_requested'
+        id: review2_gate
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          jq -e . .factory-run/review2.json >/dev/null
+          echo "verdict=$(jq -r '.verdict' .factory-run/review2.json)" >> "$GITHUB_OUTPUT"
+          { echo '### Autonomous review 2'; echo '```json'; cat .factory-run/review2.json; echo '```'; } > .factory-run/review2.md
+          gh pr comment "$PR_NUMBER" --body-file .factory-run/review2.md
+
+      - name: Fixer cycle 2
+        if: steps.gate.outputs.run == 'true' && steps.review2_gate.outputs.verdict == 'changes_requested'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ':workspace'
+          effort: high
+          prompt: |
+            Read `.factory/agents/fixer.md` and `.factory-run/review2.json`.
+            This is the final automatic repair cycle. Resolve every blocking finding with the smallest correct, tested change. Do not edit `.github/**` or `.factory/**`.
+
+      - name: Verify and commit fixer cycle 2
+        if: steps.gate.outputs.run == 'true' && steps.review2_gate.outputs.verdict == 'changes_requested'
+        run: |
+          pnpm test && pnpm typecheck && pnpm build
+          forbidden="$(git diff --name-only HEAD -- .github .factory | cat)"
+          test -z "$forbidden" || { echo "$forbidden"; exit 1; }
+          git add -A -- src tests docs drizzle package.json pnpm-lock.yaml wrangler.jsonc SPEC.md SECURITY.md 2>/dev/null || true
+          git commit -m "fix: address factory review 2 for #${ISSUE_NUMBER}" || true
+          git push origin "$FACTORY_BRANCH"
+
+      - name: Independent review 3
+        if: steps.gate.outputs.run == 'true' && steps.review2_gate.outputs.verdict == 'changes_requested'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ':read-only'
+          effort: high
+          output-schema-file: .factory/schemas/review.schema.json
+          output-file: .factory-run/review3.json
+          prompt: |
+            Read `.factory/agents/reviewer.md`, the issue spec, and independently review the complete current branch diff against `main` after both repair cycles. Return only structured review JSON.
+
+      - name: Record review 3
+        if: steps.gate.outputs.run == 'true' && steps.review2_gate.outputs.verdict == 'changes_requested'
+        id: review3_gate
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          jq -e . .factory-run/review3.json >/dev/null
+          echo "verdict=$(jq -r '.verdict' .factory-run/review3.json)" >> "$GITHUB_OUTPUT"
+          { echo '### Autonomous review 3'; echo '```json'; cat .factory-run/review3.json; echo '```'; } > .factory-run/review3.md
+          gh pr comment "$PR_NUMBER" --body-file .factory-run/review3.md
+
+      - name: Determine final review verdict
+        if: steps.gate.outputs.run == 'true'
+        id: final_review
+        run: |
+          verdict='changes_requested'
+          if [ "${{ steps.review1_gate.outputs.verdict }}" = 'pass' ]; then
+            verdict='pass'
+          elif [ "${{ steps.review2_gate.outputs.verdict }}" = 'pass' ]; then
+            verdict='pass'
+          elif [ "${{ steps.review3_gate.outputs.verdict }}" = 'pass' ]; then
+            verdict='pass'
+          fi
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+
+      - name: Classify final change risk
+        if: steps.gate.outputs.run == 'true'
+        id: risk
+        run: |
+          risk='low'
+          while IFS= read -r file; do
+            case "$file" in
+              src/lib/crypto.ts|src/lib/auth.ts|src/db/*|drizzle/*|SECURITY.md|docs/THREAT_MODEL.md|wrangler.jsonc|.github/*|.factory/*)
+                risk='high'; break ;;
+              src/app/api/*|src/services/*|src/lib/validation.ts|package.json|pnpm-lock.yaml)
+                [ "$risk" = 'low' ] && risk='medium' ;;
+            esac
+          done < <(git diff --name-only origin/main...HEAD)
+          echo "risk=$risk" >> "$GITHUB_OUTPUT"
+          if [ "$risk" = 'high' ] && [ "$ALLOW_HIGH_RISK" != 'true' ]; then
+            echo 'merge_allowed=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'merge_allowed=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Escalate unresolved review
+        if: steps.gate.outputs.run == 'true' && steps.final_review.outputs.verdict != 'pass'
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          gh issue edit "$ISSUE_NUMBER" --remove-label 'factory:review' --add-label 'factory:needs-human' || true
+          gh pr ready "$PR_NUMBER" || true
+          gh pr comment "$PR_NUMBER" --body 'Factory stopped after two repair cycles because independent review still requests changes. Human decision required.'
+
+      - name: Escalate high-risk merge
+        if: steps.gate.outputs.run == 'true' && steps.final_review.outputs.verdict == 'pass' && steps.risk.outputs.merge_allowed != 'true'
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          gh issue edit "$ISSUE_NUMBER" --remove-label 'factory:review' --add-label 'factory:needs-human' || true
+          gh pr ready "$PR_NUMBER" || true
+          gh pr comment "$PR_NUMBER" --body "All automated gates passed, but deterministic risk classification is **${{ steps.risk.outputs.risk }}**. Set repository variable \`FACTORY_ALLOW_HIGH_RISK_AUTOMERGE=true\` or merge manually after review."
+
+      - name: Merge autonomous PR
+        if: steps.gate.outputs.run == 'true' && steps.final_review.outputs.verdict == 'pass' && steps.risk.outputs.merge_allowed == 'true'
+        id: merge
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          gh pr ready "$PR_NUMBER"
+          gh pr comment "$PR_NUMBER" --body "Factory gates passed. Risk: **${{ steps.risk.outputs.risk }}**. Merging autonomously."
+          gh pr merge "$PR_NUMBER" --squash --delete-branch
+          merge_sha="$(gh pr view "$PR_NUMBER" --json mergeCommit --jq '.mergeCommit.oid')"
+          echo "sha=$merge_sha" >> "$GITHUB_OUTPUT"
+          gh issue edit "$ISSUE_NUMBER" --remove-label 'factory:review' --add-label 'factory:complete' || true
+
+      - name: Dispatch release pipeline
+        if: steps.merge.outputs.sha != ''
+        env:
+          MERGE_SHA: ${{ steps.merge.outputs.sha }}
+        run: |
+          production='false'
+          [ "$AUTONOMOUS_PRODUCTION" = 'true' ] && production='true'
+          gh workflow run release.yml -f sha="$MERGE_SHA" -f production="$production"

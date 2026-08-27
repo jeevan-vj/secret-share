@@ -1,0 +1,23 @@
+# Factory/Codex control plane: always human owned.
+/AGENTS.md @jeevan-vj
+/.github/ @jeevan-vj
+/.factory/ @jeevan-vj
+
+# Security contracts and deployment configuration.
+/SECURITY.md @jeevan-vj
+/docs/THREAT_MODEL.md @jeevan-vj
+/wrangler.jsonc @jeevan-vj
+
+# Zero-knowledge and secret-handling boundary.
+/src/lib/crypto.ts @jeevan-vj
+/src/lib/share-link.ts @jeevan-vj
+/src/lib/encoding.ts @jeevan-vj
+/src/lib/auth.ts @jeevan-vj
+/src/lib/security/ @jeevan-vj
+/src/app/page.tsx @jeevan-vj
+/src/app/s/ @jeevan-vj
+/src/app/api/secrets/ @jeevan-vj
+/src/app/api/auth/ @jeevan-vj
+/src/services/secrets.ts @jeevan-vj
+/src/db/ @jeevan-vj
+/drizzle/ @jeevan-vj

@@ -1,0 +1,29 @@
+name: Factory Codex Review Signal
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+# This PR-associated workflow never writes. Its completion wakes the trusted
+# default-branch factory-controller.yml via workflow_run.
+permissions:
+  contents: read
+
+concurrency:
+  group: factory-review-signal-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  signal:
+    if: github.event.review.user.login == 'chatgpt-codex-connector[bot]' && github.event.review.user.type == 'Bot'
+    name: Factory Codex review signal
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record signal only
+        env:
+          REVIEW_COMMIT: ${{ github.event.review.commit_id }}
+        run: |
+          set -euo pipefail
+          echo "Codex submitted a review for $REVIEW_COMMIT. Trusted controller will re-read the live PR state."

@@ -1,0 +1,40 @@
+{
+  "name": "secret-share",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "dev": "vinext dev",
+    "build": "vinext build",
+    "start": "wrangler dev --config dist/server/wrangler.json",
+    "deploy": "vinext-cloudflare deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply secret-share --local"
+  },
+  "dependencies": {
+    "@better-auth/drizzle-adapter": "latest",
+    "better-auth": "latest",
+    "drizzle-orm": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "vinext": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vinext/cloudflare": "latest",
+    "@vitejs/plugin-rsc": "latest",
+    "drizzle-kit": "latest",
+    "typescript": "latest",
+    "vite": "latest",
+    "vitest": "latest",
+    "wrangler": "latest"
+  }
+}

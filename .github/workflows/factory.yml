@@ -77,8 +77,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - if: steps.gate.outputs.run == 'true'
-        run: pnpm install --no-frozen-lockfile
+      - name: Install existing dependencies without changing repository state
+        if: steps.gate.outputs.run == 'true'
+        run: pnpm install --no-frozen-lockfile --lockfile=false
 
       - name: Planner agent
         if: steps.gate.outputs.run == 'true'
@@ -114,6 +115,10 @@ jobs:
             Read `.factory/agents/implementer.md`, `SECURITY.md`, and `docs/specs/issue-${{ github.event.issue.number }}.md`.
             Implement the spec using TDD. Never edit `.github/**` or `.factory/**`.
 
+      - name: Resolve dependencies after implementation
+        if: steps.gate.outputs.run == 'true'
+        run: pnpm install --no-frozen-lockfile
+
       - name: Initial verification
         if: steps.gate.outputs.run == 'true'
         id: verify1
@@ -131,6 +136,10 @@ jobs:
             The issue implementation failed verification. Read `.factory/agents/fixer.md` and the issue spec.
             Run `pnpm test`, `pnpm typecheck`, and `pnpm build`, diagnose the failures, and make the smallest tested fixes.
             Never edit `.github/**` or `.factory/**`.
+
+      - name: Refresh dependencies after verification repair
+        if: steps.gate.outputs.run == 'true' && steps.verify1.outcome == 'failure'
+        run: pnpm install --no-frozen-lockfile
 
       - name: Verify implementation
         if: steps.gate.outputs.run == 'true'
@@ -211,6 +220,7 @@ jobs:
       - name: Verify and commit review fixes
         if: steps.gate.outputs.run == 'true' && steps.review1.outputs.verdict == 'changes_requested'
         run: |
+          pnpm install --no-frozen-lockfile
           pnpm test && pnpm typecheck && pnpm build
           forbidden="$(git status --porcelain --untracked-files=all -- .github .factory | cat)"
           test -z "$forbidden" || { echo "$forbidden"; exit 1; }

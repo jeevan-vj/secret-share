@@ -2,7 +2,14 @@ import { createSecretSchema } from "@/lib/validation";
 import { createSecretRecord } from "@/services/secrets";
 
 export async function POST(request: Request) {
-  const parsed = createSecretSchema.safeParse(await request.json());
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "invalid_request" }, { status: 400 });
+  }
+
+  const parsed = createSecretSchema.safeParse(body);
   if (!parsed.success) {
     return Response.json({ error: "invalid_request" }, { status: 400 });
   }

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
 import { detectFactoryHandoff } from '../.factory/handoff.mjs';
 import {
   factoryReviewLogins,
@@ -46,16 +47,31 @@ describe('factory handoff detection', () => {
     expect(encoded).toContain('"delegated":true');
   });
 
-  it('documents that untrusted handoff text must stay out of GITHUB_OUTPUT multiline records', () => {
-    // Regression guard for the P1 Codex finding on PR #19: issue/comment bodies
-    // can contain delimiter lines like HANDOFF_EOF. Intake must store those
-    // values in runner temp files and only pass file paths through outputs.
-    const adversarial = ['@cursor please implement', 'HANDOFF_EOF', 'number=999', 'BODY_EOF'].join('\n');
-    expect(detectFactoryHandoff(adversarial)).toEqual({
-      delegated: true,
-      provider: 'cursor',
-    });
-    expect(adversarial).toContain('HANDOFF_EOF');
+  it('requires factory intake to transport untrusted text via temp files, not GITHUB_OUTPUT multiline records', () => {
+    // P2/P1 guard: must fail if fixed-delimiter writes of issue/comment bodies into
+    // $GITHUB_OUTPUT are reintroduced (Codex review on #19/#22).
+    const workflow = fs.readFileSync(new URL('../.github/workflows/factory.yml', import.meta.url), 'utf8');
+
+    expect(workflow).toContain('mkdir -p "$RUNNER_TEMP/factory-intake"');
+    expect(workflow).toContain('printf \'%s\' "$handoff" > "$handoff_file"');
+    expect(workflow).toContain('printf \'%s\' "$body" > "$body_file"');
+    expect(workflow).toContain('printf \'%s\' "$title" > "$title_file"');
+    expect(workflow).toContain('echo "handoff_file=$handoff_file"');
+    expect(workflow).toContain('echo "body_file=$body_file"');
+    expect(workflow).toContain('echo "title_file=$title_file"');
+    expect(workflow).toContain('HANDOFF_FILE: ${{ steps.issue.outputs.handoff_file }}');
+    expect(workflow).toContain('BODY_FILE: ${{ steps.issue.outputs.body_file }}');
+    expect(workflow).toContain('TITLE_FILE: ${{ steps.issue.outputs.title_file }}');
+    expect(workflow).toContain('node .factory/handoff.mjs < "$HANDOFF_FILE"');
+    expect(workflow).toContain('--body-file "$BODY_FILE"');
+
+    // Vulnerable parent patterns must stay gone.
+    expect(workflow).not.toMatch(/echo "handoff<<HANDOFF_EOF"/);
+    expect(workflow).not.toMatch(/echo "body<<BODY_EOF"/);
+    expect(workflow).not.toMatch(/echo "title<<TITLE_EOF"/);
+    expect(workflow).not.toMatch(/HANDOFF:\s*\$\{\{\s*steps\.issue\.outputs\.handoff\s*\}\}/);
+    expect(workflow).not.toMatch(/ISSUE_BODY:\s*\$\{\{\s*steps\.issue\.outputs\.body\s*\}\}/);
+    expect(workflow).not.toMatch(/ISSUE_TITLE:\s*\$\{\{\s*steps\.issue\.outputs\.title\s*\}\}/);
   });
 });
 

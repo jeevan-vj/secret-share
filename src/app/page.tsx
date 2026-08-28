@@ -45,6 +45,7 @@ export default function HomePage() {
         <p className="eyebrow">SECRET SHARE</p>
         <h1>Share a secret without giving the server the key.</h1>
         <p className="muted">Encryption happens in this browser. The decryption key is stored only in the share link fragment.</p>
+        <p className="muted">One-time secrets become unavailable after the first successful reveal.</p>
         <form onSubmit={submit}>
           <label htmlFor="secret">Secret</label>
           <textarea id="secret" value={secret} onChange={(e) => setSecret(e.target.value)} required minLength={1} maxLength={100000} autoComplete="off" spellCheck={false} />

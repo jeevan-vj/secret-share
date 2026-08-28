@@ -45,6 +45,18 @@ describe('factory handoff detection', () => {
     expect(encoded).toContain('"provider":"cursor"');
     expect(encoded).toContain('"delegated":true');
   });
+
+  it('documents that untrusted handoff text must stay out of GITHUB_OUTPUT multiline records', () => {
+    // Regression guard for the P1 Codex finding on PR #19: issue/comment bodies
+    // can contain delimiter lines like HANDOFF_EOF. Intake must store those
+    // values in runner temp files and only pass file paths through outputs.
+    const adversarial = ['@cursor please implement', 'HANDOFF_EOF', 'number=999', 'BODY_EOF'].join('\n');
+    expect(detectFactoryHandoff(adversarial)).toEqual({
+      delegated: true,
+      provider: 'cursor',
+    });
+    expect(adversarial).toContain('HANDOFF_EOF');
+  });
 });
 
 describe('factory review bots', () => {

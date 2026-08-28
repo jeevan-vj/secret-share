@@ -1,3 +1,4 @@
+import { db } from "@/db/client";
 import { createSecretSchema } from "@/lib/validation";
 import { createSecretRecord } from "@/services/secrets";
 
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "invalid_request" }, { status: 400 });
   }
 
-  const result = await createSecretRecord({
+  const result = await createSecretRecord(db, {
     ...parsed.data,
     expiresAt: new Date(parsed.data.expiresAt),
   });

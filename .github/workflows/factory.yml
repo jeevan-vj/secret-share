@@ -1,4 +1,4 @@
-name: Subscription-native Factory Intake
+name: Factory Intake
 
 on:
   issues:
@@ -20,9 +20,16 @@ jobs:
       (github.event_name == 'issues' && github.event.action == 'opened' && github.event.issue.user.login == github.repository_owner) ||
       (github.event_name == 'issues' && github.event.action == 'reopened' && github.event.issue.user.login == github.repository_owner) ||
       (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'factory:ready') ||
-      (github.event_name == 'issue_comment' && github.event.action == 'created' && github.event.issue.pull_request == null && github.event.comment.user.login == github.repository_owner && contains(github.event.comment.body, '@codex'))
+      (github.event_name == 'issue_comment' && github.event.action == 'created' && github.event.issue.pull_request == null && github.event.comment.user.login == github.repository_owner && (contains(github.event.comment.body, '@cursor') || contains(github.event.comment.body, '@codex')))
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout factory control plane
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .factory
+
       - name: Ensure factory labels
         env:
           GH_TOKEN: ${{ github.token }}
@@ -30,8 +37,10 @@ jobs:
         run: |
           set -euo pipefail
           for spec in \
-            'factory:ready|0E8A16|Ready for Codex Cloud factory' \
-            'factory:delegated|1D76DB|Delegated to subscription-backed Codex Cloud' \
+            'factory:ready|0E8A16|Ready for Cursor/Codex factory' \
+            'factory:delegated|1D76DB|Delegated to Cursor or Codex cloud agent' \
+            'factory:planning|1D76DB|Factory planning' \
+            'factory:implementing|5319E7|Factory implementing' \
             'factory:review|8250DF|Factory PR awaiting or undergoing review' \
             'factory:needs-human|D93F0B|Factory needs human decision' \
             'factory:complete|2DA44E|Factory completed'; do
@@ -39,7 +48,7 @@ jobs:
             gh label create "$name" --repo "$REPOSITORY" --color "$color" --description "$description" --force >/dev/null
           done
 
-      - name: Validate subscription-backed Codex handoff
+      - name: Validate handoff
         id: gate
         env:
           GH_TOKEN: ${{ github.token }}
@@ -56,21 +65,84 @@ jobs:
             handoff="$ISSUE_BODY"
           fi
 
-          if printf '%s' "$handoff" | grep -qi '@codex'; then
-            echo 'delegated=true' >> "$GITHUB_OUTPUT"
+          printf '%s' "$handoff" > "$RUNNER_TEMP/handoff.txt"
+          result="$(node .factory/handoff.mjs < "$RUNNER_TEMP/handoff.txt")"
+          provider="$(printf '%s' "$result" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const j=JSON.parse(s);process.stdout.write(j.provider||"")}')"
+          delegated="$(printf '%s' "$result" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const j=JSON.parse(s);process.stdout.write(j.delegated?"true":"false")}')"
+
+          echo "provider=$provider" >> "$GITHUB_OUTPUT"
+          echo "delegated=$delegated" >> "$GITHUB_OUTPUT"
+
+          if [ "$delegated" = 'true' ]; then
             gh issue edit "$ISSUE_NUMBER" --repo "$REPOSITORY" --remove-label 'factory:needs-human' --add-label 'factory:delegated' || true
           else
-            echo 'delegated=false' >> "$GITHUB_OUTPUT"
             gh issue edit "$ISSUE_NUMBER" --repo "$REPOSITORY" --add-label 'factory:needs-human' || true
-            gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body $'This factory uses your ChatGPT/Codex subscription through the native GitHub integration, not an API key.\n\nTo delegate this issue, add a **user-authored** comment beginning with `@codex` and ask Codex to plan, implement with TDD, run verification, and create a PR that closes this issue. New issues created from the **Factory task** template include this handoff automatically.'
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body $'This factory supports **Cursor Cloud** (preferred) and Codex Cloud.\n\nTo delegate, add a **user-authored** comment beginning with `@cursor` (or `@codex`) asking the agent to plan, implement with TDD, verify, and open a PR that closes this issue.\n\nNew issues from the **Factory task** template include the `@cursor` handoff automatically.\n\nFor unattended Cursor dispatch, set repository secret `CURSOR_API_KEY` (Cursor Dashboard → API Keys).'
           fi
 
-      - name: Record delegation mode
+      - name: Record delegation
         if: steps.gate.outputs.delegated == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
+          PROVIDER: ${{ steps.gate.outputs.provider }}
         run: |
           set -euo pipefail
-          gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body $'Factory intake accepted. This user-authored `@codex` handoff uses your ChatGPT/Codex subscription. PR-controlled workflows remain read-only; the trusted default-branch controller handles deterministic gating and eligible merges.'
+          if [ "$PROVIDER" = 'cursor' ]; then
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body $'Factory intake accepted for **Cursor Cloud**. PR-controlled workflows stay read-only; the trusted default-branch controller handles deterministic gating and eligible merges.\n\nIf `CURSOR_API_KEY` is configured, intake will dispatch a Cursor Cloud Agent next. Otherwise configure that secret or create Automations from `.factory/automations/`.'
+          else
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body $'Factory intake accepted for **Codex Cloud** (ChatGPT subscription). PR-controlled workflows remain read-only; the trusted default-branch controller handles deterministic gating and eligible merges.'
+          fi
+
+      - name: Dispatch Cursor Cloud Agent
+        if: steps.gate.outputs.delegated == 'true' && steps.gate.outputs.provider == 'cursor'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${CURSOR_API_KEY:-}" ]; then
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body $'Cursor handoff recorded, but `CURSOR_API_KEY` is not set, so Actions could not auto-dispatch a cloud agent.\n\n**Next steps (pick one):**\n1. Add repository secret `CURSOR_API_KEY` from [Cursor API Keys](https://cursor.com/dashboard/api), then re-comment `@cursor` on this issue.\n2. Create Automations from `.factory/automations/` at [cursor.com/automations](https://cursor.com/automations).\n3. Manually start a Cloud Agent against this issue.'
+            exit 0
+          fi
+
+          # Skip if a factory PR already claims this issue.
+          existing="$(gh pr list --repo "$REPOSITORY" --state open --search "Closes #$ISSUE_NUMBER" --json number --jq 'length')"
+          if [ "$existing" != '0' ]; then
+            echo "Open PR already references Closes #$ISSUE_NUMBER; skipping dispatch."
+            exit 0
+          fi
+
+          body_file="$RUNNER_TEMP/issue-body.md"
+          gh api "repos/$REPOSITORY/issues/$ISSUE_NUMBER" --jq '.body // ""' > "$body_file"
+
+          gh issue edit "$ISSUE_NUMBER" --repo "$REPOSITORY" --add-label 'factory:implementing' || true
+
+          set +e
+          output="$(node .factory/dispatch-cursor.mjs \
+            --repo "$REPOSITORY" \
+            --issue "$ISSUE_NUMBER" \
+            --title "$ISSUE_TITLE" \
+            --body-file "$body_file" \
+            --ref "$DEFAULT_BRANCH" 2>&1)"
+          status=$?
+          set -e
+
+          if [ "$status" -ne 0 ]; then
+            gh issue edit "$ISSUE_NUMBER" --repo "$REPOSITORY" --remove-label 'factory:implementing' --add-label 'factory:needs-human' || true
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body "$(printf 'Cursor Cloud Agent dispatch failed:\n\n```\n%s\n```\n' "$output")"
+            exit 0
+          fi
+
+          agent_url="$(printf '%s' "$output" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{const j=JSON.parse(s);const u=j.agent?.url||j.url||j.target?.url||"";process.stdout.write(u)}catch{process.stdout.write("")}}')"
+          if [ -n "$agent_url" ]; then
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body "Dispatched Cursor Cloud Agent: $agent_url"
+          else
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body $'Dispatched Cursor Cloud Agent. Watch for a PR that closes this issue.\n\n<details><summary>API response</summary>\n\n```json\n'"$output"$'\n```\n</details>'
+          fi

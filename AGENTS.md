@@ -59,6 +59,10 @@ PRs must:
 - explicitly identify migrations, auth/crypto changes, deployment changes, or control-plane changes,
 - avoid unrelated refactors.
 
+Factory workers are Cursor Cloud Agents (preferred, `@cursor`) or Codex Cloud (`@codex`).
+Independent review may come from allowlisted factory bots in `.factory/review-bots.json`.
+Merge/release gating remains GitHub Actions on the trusted default branch.
+
 ## Code Review Rules
 
 ### Zero-knowledge boundary

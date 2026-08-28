@@ -1,4 +1,4 @@
-name: Factory Codex Review Signal
+name: Factory Review Signal
 
 on:
   pull_request_review:
@@ -15,15 +15,25 @@ concurrency:
 
 jobs:
   signal:
-    if: github.event.review.user.login == 'chatgpt-codex-connector[bot]' && github.event.review.user.type == 'Bot'
-    name: Factory Codex review signal
+    # Keep allowlist here so skipped non-factory reviews do not wake the controller
+    # (workflow_run only proceeds on conclusion=success). Keep .factory/review-bots.json
+    # as the controller's source of truth for live re-reads.
+    if: >-
+      github.event.review.user.type == 'Bot' &&
+      (
+        github.event.review.user.login == 'chatgpt-codex-connector[bot]' ||
+        github.event.review.user.login == 'cursor[bot]' ||
+        github.event.review.user.login == 'cursor'
+      )
+    name: Factory review signal
     permissions:
       contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Record signal only
         env:
+          REVIEW_LOGIN: ${{ github.event.review.user.login }}
           REVIEW_COMMIT: ${{ github.event.review.commit_id }}
         run: |
           set -euo pipefail
-          echo "Codex submitted a review for $REVIEW_COMMIT. Trusted controller will re-read the live PR state."
+          echo "Factory review bot $REVIEW_LOGIN submitted a review for $REVIEW_COMMIT. Trusted controller will re-read the live PR state."

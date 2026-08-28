@@ -6,7 +6,7 @@ The deterministic workflow classifier has final authority over merge risk. Agent
 
 Any change touching encryption, authentication, database schemas/migrations, security policy, Cloudflare configuration, GitHub workflows, or production/release behavior.
 
-Examples: `src/lib/crypto.ts`, `src/lib/auth.ts`, `src/db/**`, `drizzle/**`, `SECURITY.md`, `docs/THREAT_MODEL.md`, `wrangler.jsonc`, `.github/**`, `.factory/**`.
+Examples: `src/lib/crypto.ts`, `src/lib/auth.ts`, `src/db/**`, `drizzle/**`, `SECURITY.md`, `docs/THREAT_MODEL.md`, `wrangler.jsonc`, `.github/**`, `.factory/**` (including Cursor automation prompts and dispatch helpers).
 
 Default: agents may implement/review/fix, but auto-merge is blocked. Set `FACTORY_ALLOW_HIGH_RISK_AUTOMERGE=true` only after the factory has demonstrated reliable behavior.
 

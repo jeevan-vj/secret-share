@@ -1,55 +1,51 @@
 # Factory activation
 
-This factory uses **Codex Cloud through the native GitHub integration and your ChatGPT/Codex subscription** for implementation and review. GitHub Actions provides deterministic verification and a trusted default-branch controller for merge/release gating.
+This factory uses **Cursor Cloud Agents** (preferred) and optionally **Codex Cloud** for implementation and review. GitHub Actions provides deterministic verification and a trusted default-branch controller for merge/release gating.
 
-No `OPENAI_API_KEY` is required for planning, implementation, or review.
+## 1. Cursor Cloud setup
 
-## 1. Codex Cloud environment
+1. Connect Cursor to this GitHub repository (Cursor Dashboard → Integrations / Cloud Agents).
+2. Create an API key at [cursor.com/dashboard/api](https://cursor.com/dashboard/api).
+3. Add repository secret `CURSOR_API_KEY`.
+4. Keep the Cursor environment minimal: Node 22, pnpm 10, repo access, build/test tooling only.
+5. Do **not** put production Cloudflare credentials, production D1 credentials, `BETTER_AUTH_SECRET`, broad GitHub PATs, or personal OAuth/session tokens in the Cursor environment.
+6. Optionally create Automations from `.factory/automations/` at [cursor.com/automations](https://cursor.com/automations) for PR review / CI fix loops.
 
-Connect Codex/ChatGPT to GitHub and configure a Codex Cloud environment for `jeevan-vj/secret-share`.
+## 2. Codex Cloud (optional fallback)
 
-Keep the environment minimal:
+Connect Codex/ChatGPT to GitHub if you still want `@codex` handoffs. No `OPENAI_API_KEY` is required for subscription-native Codex planning/implementation/review.
 
-- Node 22
-- pnpm 10
-- repository access
-- only build/test tooling required by the project
+Enable native Codex code review if you use that reviewer path. Cursor reviews (`cursor[bot]` / `cursor`) are also accepted by the trusted controller.
 
-Do **not** put production Cloudflare credentials, production D1 credentials, `BETTER_AUTH_SECRET`, broad GitHub PATs, or personal OAuth/session tokens in the Codex environment.
+## 3. Repository contract
 
-Keep agent internet access disabled unless a task requires it. If it must be enabled, use the smallest practical domain allowlist and disable it again when no longer needed.
-
-Enable native Codex code review for this repository. Prefer automatic review of new PRs if available in the Codex repository settings.
-
-## 2. Repository contract
-
-`AGENTS.md` is the durable instruction contract for Codex implementation and review. It defines:
+`AGENTS.md` is the durable instruction contract. It defines:
 
 - zero-knowledge security invariants,
 - required reading,
 - TDD/verification workflow,
 - dependency rules,
 - PR definition of done,
-- Codex code-review rules and blocking severities.
+- review rules and blocking severities.
 
-Do not duplicate large instruction blocks in every issue. The Factory task template supplies the goal and points Codex to `AGENTS.md`.
+Do not duplicate large instruction blocks in every issue. The Factory task template supplies the goal and points agents to `AGENTS.md` plus `.factory/agents/*`.
 
 `AGENTS.md`, `.github/**`, and `.factory/**` are protected control-plane paths and always require human merge approval.
 
-## 3. Start factory tasks
+## 4. Start factory tasks
 
-Prefer GitHub's **Factory task** issue template. It contains a user-authored `@codex` handoff and asks Codex to plan, implement with TDD, verify, self-review, and create a PR that closes the issue.
+Prefer GitHub's **Factory task** issue template. It contains a user-authored `@cursor` handoff and asks the agent to plan, implement with TDD, verify, self-review, and create a PR that closes the issue.
 
-The `@codex` mention is intentionally authored by you. GitHub Actions does **not** store or impersonate your ChatGPT login/session.
+For an existing issue, a user-authored issue comment beginning with `@cursor` (or `@codex`) is also supported. The intake workflow validates that the comment is on an issue (not a PR) and is authored by the repository owner before adding `factory:delegated`.
 
-For an existing issue, a user-authored issue comment beginning with `@codex` is also supported. The intake workflow validates that the comment is on an issue (not a PR) and is authored by the repository owner before adding `factory:delegated`.
+When provider is Cursor and `CURSOR_API_KEY` is set, intake dispatches a Cloud Agent via `https://api.cursor.com/v1/agents` with `autoCreatePR=true`.
 
-## 4. Trust boundaries
+## 5. Trust boundaries
 
 PR-controlled workflows are read-only:
 
 - `Factory PR Gate` checks out candidate code and runs frozen dependency install, tests, typecheck, build, and risk-policy tests.
-- `Factory Codex Review Signal` only records that native Codex submitted a review.
+- `Factory Review Signal` only records that an allowlisted factory review bot submitted a review.
 
 Neither workflow receives issue/PR write permission.
 
@@ -58,14 +54,16 @@ Neither workflow receives issue/PR write permission.
 - same-repository PR,
 - linked issue carrying `factory:delegated`,
 - successful `Factory deterministic gate` for the exact current head,
-- latest native Codex review targets that exact head,
+- latest factory review bot review targets that exact head,
 - no inline findings / requested changes in that latest review,
 - eligible deterministic risk classification,
 - unchanged head and unchanged latest review immediately before merge.
 
 Review/file/comment APIs are paginated and failures are fail-closed. The final merge uses `--match-head-commit`.
 
-## 5. Central risk policy
+Allowlisted review bots live in `.factory/review-bots.json` (Cursor + Codex).
+
+## 6. Central risk policy
 
 Risk classification lives in one tested source of truth:
 
@@ -86,23 +84,19 @@ Repository variable:
 
 The high-risk override never applies to `protected` control-plane changes.
 
-## 6. Review and repair
+## 7. Review and repair
 
-Native Codex code review is the independent reviewer. `AGENTS.md` contains repository-specific review rules.
+Independent factory review (Cursor and/or Codex) is required. `AGENTS.md` contains repository-specific review rules. Automation prompts: `.factory/automations/review.md` and `fix.md`.
 
 For high-risk crypto/auth/secret-storage work, also run a user-authored targeted review before human merge:
 
-> @codex security review
+> @cursor security review
 
-If Codex finds blocking feedback, the PR is not merged. In subscription-only mode, Actions cannot impersonate your ChatGPT account to start the repair task. Add a user-authored follow-up such as:
+If the reviewer finds blocking feedback, the PR is not merged. With `CURSOR_API_KEY`, you can comment `@cursor address all current review findings...` to dispatch/repair, or rely on a Fix automation. Without an API identity, add a user-authored follow-up to start repair.
 
-> @codex address all current review findings, add regression tests, run pnpm test/typecheck/build, and update this PR.
+After the PR updates, require a fresh factory review of the new head.
 
-After Codex updates the PR, require a fresh native review of the new head.
-
-This is the intentional human trigger in subscription-only mode. Fully unattended repair loops require an API/service identity rather than a personal ChatGPT subscription.
-
-## 7. Reproducible dependencies
+## 8. Reproducible dependencies
 
 Direct dependencies in `package.json` are exact-pinned and `pnpm-lock.yaml` is authoritative. CI, factory verification, and release use:
 
@@ -112,7 +106,7 @@ pnpm install --frozen-lockfile
 
 Dependabot is configured for npm and GitHub Actions updates. Dependency updates must arrive as reviewable PRs and update the lockfile intentionally.
 
-## 8. GitHub main-branch ruleset
+## 9. GitHub main-branch ruleset
 
 A repository ruleset is required in addition to workflow logic. Configure it in GitHub Settings → Rules → Rulesets for `main`.
 
@@ -132,9 +126,9 @@ Do not add a global human approval requirement if you want low/medium-risk facto
 
 The repository currently cannot create/update this ruleset from the connected GitHub integration, so this is a one-time manual GitHub setting.
 
-## 9. GitHub environments and Cloudflare
+## 10. GitHub environments and Cloudflare
 
-Deployment remains independent of Codex billing/authentication.
+Deployment remains independent of Cursor/Codex billing/authentication.
 
 Create `staging` and `production` environments. Put the following secrets in each environment:
 
@@ -155,11 +149,10 @@ The release workflow applies remote D1 migrations and deploys the Worker after a
 
 ## Safe progression
 
-1. Merge this protected factory change manually after CI/Codex/Sonar are clean.
-2. Configure the `main` ruleset and Code Owner review requirement.
-3. Enable automatic native Codex reviews.
-4. Test a low-risk Factory task without Cloudflare configured.
-5. Confirm Codex creates the PR, frozen CI passes, Codex review is clean, and the trusted controller auto-merges it.
-6. Test a high-risk secret-handling change and confirm it stops for human approval and targeted security review.
-7. Configure staging Cloudflare resources and validate release.
-8. Add production approval and only later consider autonomous production/high-risk application merges.
+1. Merge this protected factory change manually after CI is clean.
+2. Add `CURSOR_API_KEY` and confirm Cursor↔GitHub repo access.
+3. Configure the `main` ruleset and Code Owner review requirement.
+4. Open a low-risk Factory task (`@cursor`) and confirm dispatch → PR → frozen CI → factory review → trusted auto-merge.
+5. Test a high-risk secret-handling change and confirm it stops for human approval.
+6. Configure staging Cloudflare resources and validate release.
+7. Add production approval and only later consider autonomous production/high-risk application merges.

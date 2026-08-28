@@ -6,7 +6,7 @@ This directory is the version-controlled contract for autonomous engineering.
 
 `issue -> plan -> implement -> verify -> PR -> independent review -> fix/verify loop -> merge -> release`
 
-Owner-created issues start automatically when the body contains `@cursor` (preferred) or `@codex`. Other issues require the `factory:ready` label plus a handoff mention.
+Owner-created or Cursor-bot-created issues start automatically when the body contains `@cursor` (preferred) or `@codex`. Other issues require the `factory:ready` label plus a handoff mention.
 
 ## Workers
 

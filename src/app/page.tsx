@@ -51,7 +51,7 @@ export default function HomePage() {
           <textarea id="secret" value={secret} onChange={(e) => setSecret(e.target.value)} required minLength={1} maxLength={100000} autoComplete="off" spellCheck={false} />
           <button type="submit" disabled={busy || !secret}>{busy ? "Encrypting…" : "Encrypt & create link"}</button>
         </form>
-        {shareLink && <div className="result"><strong>One-time link</strong><input readOnly value={shareLink} onFocus={(e) => e.currentTarget.select()} /><button type="button" onClick={() => navigator.clipboard.writeText(shareLink)}>Copy link</button></div>}
+        {shareLink && <div className="result"><strong>One-time link</strong><input readOnly value={shareLink} onFocus={(e) => e.currentTarget.select()} /><button type="button" onClick={() => navigator.clipboard.writeText(shareLink)}>Copy one-time link</button></div>}
         {error && <p role="alert" className="error">{error}</p>}
       </section>
     </main>

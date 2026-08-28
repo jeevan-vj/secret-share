@@ -37,6 +37,14 @@ describe('factory handoff detection', () => {
       provider: null,
     });
   });
+
+  it('emits jq-friendly JSON for Actions intake parsing', () => {
+    const payload = detectFactoryHandoff('@cursor implement issue');
+    const encoded = JSON.stringify(payload);
+    expect(JSON.parse(encoded)).toEqual(payload);
+    expect(encoded).toContain('"provider":"cursor"');
+    expect(encoded).toContain('"delegated":true');
+  });
 });
 
 describe('factory review bots', () => {

@@ -5,9 +5,15 @@ on:
     types: [opened, labeled, reopened]
   issue_comment:
     types: [created]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number to intake / (re)dispatch
+        required: true
+        type: string
 
 concurrency:
-  group: factory-intake-${{ github.event.issue.number }}
+  group: factory-intake-${{ github.event.issue.number || inputs.issue_number }}
   cancel-in-progress: false
 
 permissions:
@@ -17,6 +23,7 @@ permissions:
 jobs:
   intake:
     if: >-
+      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issues' && github.event.action == 'opened' && (
         github.event.issue.user.login == github.repository_owner ||
         github.event.issue.user.login == 'cursor' ||
@@ -60,27 +67,63 @@ jobs:
             gh label create "$name" --repo "$REPOSITORY" --color "$color" --description "$description" --force >/dev/null
           done
 
+      - name: Resolve issue context
+        id: issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          EVENT_ISSUE_TITLE: ${{ github.event.issue.title }}
+          EVENT_ISSUE_BODY: ${{ github.event.issue.body }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          INPUT_ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = 'workflow_dispatch' ]; then
+            issue_number="$INPUT_ISSUE_NUMBER"
+            issue_json="$(gh api "repos/$REPOSITORY/issues/$issue_number")"
+            title="$(printf '%s' "$issue_json" | jq -r '.title')"
+            body="$(printf '%s' "$issue_json" | jq -r '.body // ""')"
+            handoff="$body"
+          elif [ "$EVENT_NAME" = 'issue_comment' ]; then
+            issue_number="$EVENT_ISSUE_NUMBER"
+            title="$EVENT_ISSUE_TITLE"
+            body="$EVENT_ISSUE_BODY"
+            handoff="$COMMENT_BODY"
+          else
+            issue_number="$EVENT_ISSUE_NUMBER"
+            title="$EVENT_ISSUE_TITLE"
+            body="$EVENT_ISSUE_BODY"
+            handoff="$EVENT_ISSUE_BODY"
+          fi
+
+          {
+            echo "number=$issue_number"
+            echo "title<<TITLE_EOF"
+            printf '%s\n' "$title"
+            echo "TITLE_EOF"
+            echo "handoff<<HANDOFF_EOF"
+            printf '%s\n' "$handoff"
+            echo "HANDOFF_EOF"
+            echo "body<<BODY_EOF"
+            printf '%s\n' "$body"
+            echo "BODY_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Validate handoff
         id: gate
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          EVENT_NAME: ${{ github.event_name }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+          HANDOFF: ${{ steps.issue.outputs.handoff }}
         run: |
           set -euo pipefail
-          if [ "$EVENT_NAME" = 'issue_comment' ]; then
-            handoff="$COMMENT_BODY"
-          else
-            handoff="$ISSUE_BODY"
-          fi
-
-          printf '%s' "$handoff" > "$RUNNER_TEMP/handoff.txt"
+          printf '%s' "$HANDOFF" > "$RUNNER_TEMP/handoff.txt"
           result="$(node .factory/handoff.mjs < "$RUNNER_TEMP/handoff.txt")"
-          provider="$(printf '%s' "$result" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const j=JSON.parse(s);process.stdout.write(j.provider||"")}')"
-          delegated="$(printf '%s' "$result" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const j=JSON.parse(s);process.stdout.write(j.delegated?"true":"false")}')"
+          provider="$(printf '%s' "$result" | jq -r '.provider // empty')"
+          delegated="$(printf '%s' "$result" | jq -r 'if .delegated then "true" else "false" end')"
 
           echo "provider=$provider" >> "$GITHUB_OUTPUT"
           echo "delegated=$delegated" >> "$GITHUB_OUTPUT"
@@ -97,7 +140,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
           PROVIDER: ${{ steps.gate.outputs.provider }}
         run: |
           set -euo pipefail
@@ -112,8 +155,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+          ISSUE_TITLE: ${{ steps.issue.outputs.title }}
+          ISSUE_BODY: ${{ steps.issue.outputs.body }}
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
@@ -132,7 +176,7 @@ jobs:
           fi
 
           body_file="$RUNNER_TEMP/issue-body.md"
-          gh api "repos/$REPOSITORY/issues/$ISSUE_NUMBER" --jq '.body // ""' > "$body_file"
+          printf '%s' "$ISSUE_BODY" > "$body_file"
 
           gh issue edit "$ISSUE_NUMBER" --repo "$REPOSITORY" --add-label 'factory:implementing' || true
 
@@ -152,9 +196,10 @@ jobs:
             exit 0
           fi
 
-          agent_url="$(printf '%s' "$output" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{const j=JSON.parse(s);const u=j.agent?.url||j.url||j.target?.url||"";process.stdout.write(u)}catch{process.stdout.write("")}}')"
+          agent_url="$(printf '%s' "$output" | jq -r '.agent.url // .url // .target.url // empty')"
           if [ -n "$agent_url" ]; then
             gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body "Dispatched Cursor Cloud Agent: $agent_url"
           else
-            gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body $'Dispatched Cursor Cloud Agent. Watch for a PR that closes this issue.\n\n<details><summary>API response</summary>\n\n```json\n'"$output"$'\n```\n</details>'
+            printf '%s' "$output" > "$RUNNER_TEMP/dispatch-response.json"
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body "$(printf 'Dispatched Cursor Cloud Agent. Watch for a PR that closes this issue.\n\n<details><summary>API response</summary>\n\n```json\n%s\n```\n</details>\n' "$(cat "$RUNNER_TEMP/dispatch-response.json")")"
           fi

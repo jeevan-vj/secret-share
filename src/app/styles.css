@@ -46,6 +46,10 @@ html, body {
   min-height: 100%;
 }
 
+main {
+  display: block;
+}
+
 body {
   font-family: var(--font-sans);
   background:

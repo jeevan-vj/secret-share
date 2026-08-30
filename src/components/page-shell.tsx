@@ -15,9 +15,9 @@ export function PageShell({ children, footer }: Readonly<{ children: ReactNode; 
         </a>
         <p className="brand-meta">{createCopy.eyebrow}</p>
       </header>
-      <div className="site-main" id="main">
+      <main className="site-main" id="main">
         {children}
-      </div>
+      </main>
       <footer className="site-footer">
         <p>{footer}</p>
       </footer>

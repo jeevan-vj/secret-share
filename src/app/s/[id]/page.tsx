@@ -93,13 +93,15 @@ export default function RevealPage({ params }: { params: Promise<{ id: string }>
   }
 
   const error = phase.kind === "error" ? errorCopy(phase.reason) : null;
+  const heading =
+    phase.kind === "revealed" ? revealCopy.revealedTitle : error ? error.title : revealCopy.title;
 
   return (
     <PageShell footer={revealCopy.footer}>
       <section className="narrow">
         <section className="card card-accent stack">
           <p className="eyebrow">{revealCopy.eyebrow}</p>
-          <h1>{phase.kind === "revealed" ? revealCopy.revealedTitle : revealCopy.title}</h1>
+          <h1>{heading}</h1>
 
           {phase.kind === "ready" || phase.kind === "revealing" ? (
             <>
@@ -118,7 +120,13 @@ export default function RevealPage({ params }: { params: Promise<{ id: string }>
                 <label className="field-label" htmlFor="revealed-secret">
                   Secret
                 </label>
-                <textarea id="revealed-secret" readOnly value={phase.plaintext} onFocus={(event) => event.currentTarget.select()} />
+                <textarea
+                  id="revealed-secret"
+                  className="mono"
+                  readOnly
+                  value={phase.plaintext}
+                  onFocus={(event) => event.currentTarget.select()}
+                />
               </div>
               <Button onClick={copySecret}>{copied ? revealCopy.copied : revealCopy.copySecret}</Button>
               {copyError ? (
@@ -130,9 +138,14 @@ export default function RevealPage({ params }: { params: Promise<{ id: string }>
           ) : null}
 
           {error ? (
-            <Alert tone="danger" title={error.title} role="alert">
-              {error.body}
-            </Alert>
+            <>
+              <Alert tone="danger" role="alert">
+                {error.body}
+              </Alert>
+              <a className="btn btn-secondary" href="/">
+                {revealCopy.shareNew}
+              </a>
+            </>
           ) : null}
         </section>
       </section>

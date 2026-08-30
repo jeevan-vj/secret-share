@@ -314,6 +314,13 @@ input[type="text"]:focus-visible {
   transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
 }
 
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -329,7 +336,8 @@ input[type="text"]:focus-visible {
   background: var(--brand-hover);
 }
 
-.btn-secondary {
+.btn-secondary,
+a.btn-secondary {
   background: var(--surface-raised);
   color: var(--ink);
   border-color: var(--line-strong);
@@ -442,7 +450,19 @@ input[type="text"]:focus-visible {
 }
 
 .result-link {
-  min-height: 3rem;
+  min-height: 0;
+  resize: none;
+  line-height: 1.45;
+}
+
+@media (max-width: 639px) {
+  .brand-meta {
+    display: none;
+  }
+
+  .field-meta {
+    flex-direction: column;
+  }
 }
 
 @media (min-width: 880px) {

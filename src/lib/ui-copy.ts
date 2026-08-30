@@ -60,5 +60,6 @@ export const revealCopy = {
   unavailableBody: "It may have expired or already been viewed. Expired or consumed secrets cannot be retrieved.",
   decryptFailedTitle: "The secret could not be decrypted",
   decryptFailedBody: "The link may be invalid or modified. Ciphertext is authenticated and will not decrypt if altered.",
+  shareNew: "Share a new secret",
   footer: "Decryption happens in this browser. The server never receives the key.",
 } as const;

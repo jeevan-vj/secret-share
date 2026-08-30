@@ -90,10 +90,10 @@ export default function HomePage() {
                   <label className="field-label" htmlFor="share-link">
                     {createCopy.resultLinkLabel}
                   </label>
-                  <input
+                  <textarea
                     id="share-link"
                     className="mono result-link"
-                    type="text"
+                    rows={3}
                     readOnly
                     value={shareLink}
                     onFocus={(event) => event.currentTarget.select()}

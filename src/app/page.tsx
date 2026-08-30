@@ -71,11 +71,7 @@ export default function HomePage() {
           <h1>{shareLink ? createCopy.resultTitle : createCopy.title}</h1>
           <p className="lead">{shareLink ? createCopy.resultLead : createCopy.lead}</p>
           {shareLink ? null : (
-            <>
-              <p className="muted">{createCopy.oneTime}</p>
-              <p className="muted">{createCopy.expiry}</p>
-              <TrustList items={[createCopy.trustEncrypted, createCopy.trustKey, createCopy.trustOnce]} />
-            </>
+            <TrustList items={[createCopy.trustEncrypted, createCopy.trustKey, createCopy.trustOnce]} />
           )}
         </div>
 

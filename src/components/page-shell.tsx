@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { BrandMark } from "@/components/brand-mark";
 import { createCopy } from "@/lib/ui-copy";
 
-export function PageShell({ children, footer }: { children: ReactNode; footer: string }) {
+export function PageShell({ children, footer }: Readonly<{ children: ReactNode; footer: string }>) {
   return (
     <div className="shell">
       <a className="skip-link" href="#main">

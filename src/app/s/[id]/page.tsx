@@ -26,6 +26,12 @@ function errorCopy(reason: Extract<RevealPhase, { kind: "error" }>["reason"]) {
   return { title: revealCopy.decryptFailedTitle, body: revealCopy.decryptFailedBody };
 }
 
+function revealHeading(phase: RevealPhase): string {
+  if (phase.kind === "revealed") return revealCopy.revealedTitle;
+  if (phase.kind === "error") return errorCopy(phase.reason).title;
+  return revealCopy.title;
+}
+
 export default function RevealPage({ params }: { params: Promise<{ id: string }> }) {
   const [phase, setPhase] = useState<RevealPhase>(initialRevealPhase);
   const [copied, setCopied] = useState(false);
@@ -93,8 +99,7 @@ export default function RevealPage({ params }: { params: Promise<{ id: string }>
   }
 
   const error = phase.kind === "error" ? errorCopy(phase.reason) : null;
-  const heading =
-    phase.kind === "revealed" ? revealCopy.revealedTitle : error ? error.title : revealCopy.title;
+  const heading = revealHeading(phase);
 
   return (
     <PageShell footer={revealCopy.footer}>

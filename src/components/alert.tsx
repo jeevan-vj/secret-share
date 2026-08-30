@@ -7,12 +7,12 @@ export function Alert({
   title,
   children,
   role,
-}: {
+}: Readonly<{
   tone: AlertTone;
   title?: string;
   children: ReactNode;
   role?: "alert" | "status";
-}) {
+}>) {
   return (
     <div className={`alert alert-${tone}`} role={role}>
       {title ? <strong>{title}</strong> : null}

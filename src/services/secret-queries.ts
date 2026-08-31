@@ -2,16 +2,14 @@ import { and, desc, eq, gt, isNull, lt, or } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import * as schema from "@/db/schema";
 import { secrets } from "@/db/schema";
+import { bytesToBase64Url } from "@/lib/encoding";
 import { decodeOwnerListCursor, encodeOwnerListCursor, type OwnerListCursor } from "@/lib/secret-cursor";
 import { toOwnerMetadata } from "@/lib/secret-status";
 
 export type SecretsDatabase = DrizzleD1Database<typeof schema>;
 
 function randomId(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return bytesToBase64Url(crypto.getRandomValues(new Uint8Array(16)));
 }
 
 export async function createSecretRecord(

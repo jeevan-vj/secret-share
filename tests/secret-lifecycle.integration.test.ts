@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { secrets, user } from "../src/db/schema";
+import { decodeOwnerListCursor } from "../src/lib/secret-cursor";
 import {
   claimSecretRecord,
   createSecretRecord,
@@ -104,5 +105,25 @@ describe("D1-compatible secret lifecycle", () => {
       expect(revoked).toBe("revoked");
       expect(await revokeOwnedSecret(db, "user-a", created.id)).toBe("already_revoked");
     }
+  });
+
+  it("paginates owner metadata without mixing users or ciphertext", async () => {
+    const db = createSecretsTestDb();
+    await seedUser(db, "user-a", "a@example.test");
+    await seedUser(db, "user-b", "b@example.test");
+    const first = await createSecretRecord(db, ciphertextInput("user-a"));
+    const second = await createSecretRecord(db, ciphertextInput("user-a"));
+    await createSecretRecord(db, ciphertextInput("user-b"));
+
+    const page1 = await listOwnedSecrets(db, "user-a", { limit: 1, cursor: null });
+    expect(page1.items).toHaveLength(1);
+    expect(page1.nextCursor).toBeTruthy();
+    const page2 = await listOwnedSecrets(db, "user-a", {
+      limit: 1,
+      cursor: decodeOwnerListCursor(page1.nextCursor),
+    });
+    expect(page2.items).toHaveLength(1);
+    expect(new Set([page1.items[0].id, page2.items[0].id])).toEqual(new Set([first.id, second.id]));
+    expect(JSON.stringify({ page1, page2 })).not.toMatch(/ciphertext|iv|plaintext|key/i);
   });
 });

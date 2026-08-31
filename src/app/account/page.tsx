@@ -16,6 +16,11 @@ const statusLabel: Record<ShareRow["status"], string> = {
   revoked: accountCopy.statusRevoked,
 };
 
+async function signOut() {
+  await authClient.signOut();
+  window.location.assign("/");
+}
+
 export default function AccountPage() {
   const [accountsEnabled, setAccountsEnabled] = useState<boolean | null>(null);
   const [user, setUser] = useState<MeUser | null>(null);
@@ -83,11 +88,6 @@ export default function AccountPage() {
     setError(response.status === 429 ? accountCopy.rateLimited : accountCopy.genericAuthError);
   }
 
-  async function signOut() {
-    await authClient.signOut();
-    window.location.assign("/");
-  }
-
   async function revokeOtherSessions() {
     setError(null);
     const { error: authError } = await authClient.revokeOtherSessions();
@@ -106,100 +106,167 @@ export default function AccountPage() {
 
   return (
     <AuthShell>
-        <p className="eyebrow">{accountCopy.eyebrow}</p>
-        <h1>{accountCopy.title}</h1>
-        {accountsEnabled === false ? (
-          <Alert tone="info">{accountCopy.disabled}</Alert>
-        ) : loading ? (
-          <p className="muted">{authBusyCopy()}</p>
-        ) : (
-          <>
-            <p className="lead">{accountCopy.lead}</p>
-            {user && !user.emailVerified ? (
-              <>
-                <Alert tone="warn" title={accountCopy.verifyTitle}>
-                  {accountCopy.verifyBody}
-                </Alert>
-                <div className="button-row">
-                  <Button type="button" onClick={resendVerification}>
-                    {accountCopy.resendVerification}
-                  </Button>
-                </div>
-              </>
-            ) : null}
-            {user?.emailVerified ? (
-              <div className="share-table-wrap">
-                {items.length === 0 ? (
-                  <p className="muted">{accountCopy.empty}</p>
-                ) : (
-                  <table className="share-table">
-                    <thead>
-                      <tr>
-                        <th scope="col">ID</th>
-                        <th scope="col">{accountCopy.created}</th>
-                        <th scope="col">{accountCopy.expires}</th>
-                        <th scope="col">Status</th>
-                        <th scope="col">
-                          <span className="visually-hidden">Actions</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((row) => (
-                        <tr key={row.id}>
-                          <td>
-                            <code>{row.id}</code>
-                          </td>
-                          <td>{formatStamp(row.createdAt)}</td>
-                          <td>{formatStamp(row.expiresAt)}</td>
-                          <td>{statusLabel[row.status]}</td>
-                          <td>
-                            {row.status === "available" ? (
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                disabled={busyId === row.id}
-                                onClick={() => revoke(row.id)}
-                              >
-                                {busyId === row.id ? accountCopy.revoking : accountCopy.revoke}
-                              </Button>
-                            ) : row.status === "revoked" ? (
-                              accountCopy.revoked
-                            ) : null}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-                {nextCursor ? (
-                  <Button type="button" variant="secondary" onClick={() => loadShares(nextCursor, true)}>
-                    {accountCopy.loadMore}
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
-            <section className="stack">
-              <h2>{accountCopy.sessionsTitle}</h2>
-              <p className="muted">{accountCopy.sessionsBody}</p>
-              <div className="button-row">
-                <Button type="button" variant="secondary" onClick={revokeOtherSessions}>
-                  {accountCopy.revokeOtherSessions}
-                </Button>
-                <Button type="button" variant="secondary" onClick={signOut}>
-                  {chromeCopy.signOut}
-                </Button>
-              </div>
-            </section>
-            {error ? <Alert tone="danger">{error}</Alert> : null}
-          </>
-        )}
+      <p className="eyebrow">{accountCopy.eyebrow}</p>
+      <h1>{accountCopy.title}</h1>
+      <AccountBody
+        accountsEnabled={accountsEnabled}
+        loading={loading}
+        user={user}
+        items={items}
+        nextCursor={nextCursor}
+        busyId={busyId}
+        error={error}
+        onRevoke={revoke}
+        onLoadMore={() => loadShares(nextCursor, true)}
+        onResendVerification={resendVerification}
+        onRevokeOtherSessions={revokeOtherSessions}
+      />
     </AuthShell>
   );
 }
 
-function authBusyCopy() {
-  return "Loading…";
+function AccountBody({
+  accountsEnabled,
+  loading,
+  user,
+  items,
+  nextCursor,
+  busyId,
+  error,
+  onRevoke,
+  onLoadMore,
+  onResendVerification,
+  onRevokeOtherSessions,
+}: {
+  accountsEnabled: boolean | null;
+  loading: boolean;
+  user: MeUser | null;
+  items: ShareRow[];
+  nextCursor: string | null;
+  busyId: string | null;
+  error: string | null;
+  onRevoke: (id: string) => void;
+  onLoadMore: () => void;
+  onResendVerification: () => void;
+  onRevokeOtherSessions: () => void;
+}) {
+  if (accountsEnabled === false) {
+    return <Alert tone="info">{accountCopy.disabled}</Alert>;
+  }
+  if (loading) {
+    return <p className="muted">{accountCopy.loading}</p>;
+  }
+  return (
+    <>
+      <p className="lead">{accountCopy.lead}</p>
+      {user && !user.emailVerified ? (
+        <>
+          <Alert tone="warn" title={accountCopy.verifyTitle}>
+            {accountCopy.verifyBody}
+          </Alert>
+          <div className="button-row">
+            <Button type="button" onClick={onResendVerification}>
+              {accountCopy.resendVerification}
+            </Button>
+          </div>
+        </>
+      ) : null}
+      {user?.emailVerified ? (
+        <OwnedShareList items={items} nextCursor={nextCursor} busyId={busyId} onRevoke={onRevoke} onLoadMore={onLoadMore} />
+      ) : null}
+      <section className="stack">
+        <h2>{accountCopy.sessionsTitle}</h2>
+        <p className="muted">{accountCopy.sessionsBody}</p>
+        <div className="button-row">
+          <Button type="button" variant="secondary" onClick={onRevokeOtherSessions}>
+            {accountCopy.revokeOtherSessions}
+          </Button>
+          <Button type="button" variant="secondary" onClick={signOut}>
+            {chromeCopy.signOut}
+          </Button>
+        </div>
+      </section>
+      {error ? <Alert tone="danger">{error}</Alert> : null}
+    </>
+  );
+}
+
+function OwnedShareList({
+  items,
+  nextCursor,
+  busyId,
+  onRevoke,
+  onLoadMore,
+}: {
+  items: ShareRow[];
+  nextCursor: string | null;
+  busyId: string | null;
+  onRevoke: (id: string) => void;
+  onLoadMore: () => void;
+}) {
+  return (
+    <div className="share-table-wrap">
+      {items.length === 0 ? (
+        <p className="muted">{accountCopy.empty}</p>
+      ) : (
+        <table className="share-table">
+          <thead>
+            <tr>
+              <th scope="col">ID</th>
+              <th scope="col">{accountCopy.created}</th>
+              <th scope="col">{accountCopy.expires}</th>
+              <th scope="col">Status</th>
+              <th scope="col">
+                <span className="visually-hidden">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((row) => (
+              <tr key={row.id}>
+                <td>
+                  <code>{row.id}</code>
+                </td>
+                <td>{formatStamp(row.createdAt)}</td>
+                <td>{formatStamp(row.expiresAt)}</td>
+                <td>{statusLabel[row.status]}</td>
+                <td>
+                  <ShareRowAction row={row} busyId={busyId} onRevoke={onRevoke} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {nextCursor ? (
+        <Button type="button" variant="secondary" onClick={onLoadMore}>
+          {accountCopy.loadMore}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function ShareRowAction({
+  row,
+  busyId,
+  onRevoke,
+}: {
+  row: ShareRow;
+  busyId: string | null;
+  onRevoke: (id: string) => void;
+}) {
+  if (row.status === "available") {
+    return (
+      <Button type="button" variant="secondary" disabled={busyId === row.id} onClick={() => onRevoke(row.id)}>
+        {busyId === row.id ? accountCopy.revoking : accountCopy.revoke}
+      </Button>
+    );
+  }
+  if (row.status === "revoked") {
+    return accountCopy.revoked;
+  }
+  return null;
 }
 
 function formatStamp(value: string) {

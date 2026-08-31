@@ -100,6 +100,7 @@ export const accountCopy = {
   genericAuthError: "Could not complete that request. Try again.",
   rateLimited: "Too many attempts. Wait and try again.",
   verifyRequired: "Verify your email before signing in.",
+  loading: "Loading…",
 } as const;
 
 export const authCopy = {

@@ -37,35 +37,65 @@ export default function ResetPasswordPage() {
 
   return (
     <AuthShell>
-        <p className="eyebrow">{accountCopy.eyebrow}</p>
-        <h1>{authCopy.resetTitle}</h1>
-        {!token && token !== undefined ? (
-          <Alert tone="danger">{authCopy.missingResetToken}</Alert>
-        ) : token === undefined ? (
-          <p className="muted">{authCopy.submitting}</p>
-        ) : done ? (
-          <Alert tone="ok">
-            {authCopy.resetDone} <a href="/sign-in">{authCopy.submitSignIn}</a>
-          </Alert>
-        ) : (
-          <form onSubmit={submit}>
-            <label htmlFor="password">{authCopy.password}</label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={AUTH_MIN_PASSWORD_LENGTH}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <p className="hint">{authCopy.passwordHint}</p>
-            <Button type="submit" disabled={busy} aria-busy={busy}>
-              {busy ? authCopy.submitting : authCopy.resetSubmit}
-            </Button>
-          </form>
-        )}
-        {error ? <Alert tone="danger">{error}</Alert> : null}
+      <p className="eyebrow">{accountCopy.eyebrow}</p>
+      <h1>{authCopy.resetTitle}</h1>
+      <ResetPasswordPanel
+        token={token}
+        done={done}
+        busy={busy}
+        password={password}
+        onPasswordChange={setPassword}
+        onSubmit={submit}
+      />
+      {error ? <Alert tone="danger">{error}</Alert> : null}
     </AuthShell>
+  );
+}
+
+function ResetPasswordPanel({
+  token,
+  done,
+  busy,
+  password,
+  onPasswordChange,
+  onSubmit,
+}: {
+  token: string | null | undefined;
+  done: boolean;
+  busy: boolean;
+  password: string;
+  onPasswordChange: (value: string) => void;
+  onSubmit: (event: FormEvent) => void;
+}) {
+  if (token === undefined) {
+    return <p className="muted">{accountCopy.loading}</p>;
+  }
+  if (!token) {
+    return <Alert tone="danger">{authCopy.missingResetToken}</Alert>;
+  }
+  if (done) {
+    return (
+      <Alert tone="ok">
+        {authCopy.resetDone} <a href="/sign-in">{authCopy.submitSignIn}</a>
+      </Alert>
+    );
+  }
+  return (
+    <form onSubmit={onSubmit}>
+      <label htmlFor="password">{authCopy.password}</label>
+      <input
+        id="password"
+        type="password"
+        autoComplete="new-password"
+        required
+        minLength={AUTH_MIN_PASSWORD_LENGTH}
+        value={password}
+        onChange={(event) => onPasswordChange(event.target.value)}
+      />
+      <p className="hint">{authCopy.passwordHint}</p>
+      <Button type="submit" disabled={busy} aria-busy={busy}>
+        {busy ? authCopy.submitting : authCopy.resetSubmit}
+      </Button>
+    </form>
   );
 }

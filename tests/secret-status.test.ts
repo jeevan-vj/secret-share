@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { decodeOwnerListCursor, encodeOwnerListCursor } from "../src/lib/secret-cursor";
 import { deriveSecretStatus, isOwnerMetadataAllowlist, toOwnerMetadata } from "../src/lib/secret-status";
 
 describe("secret status derivation", () => {
@@ -47,5 +48,13 @@ describe("secret status derivation", () => {
       status: "available",
     });
     expect(JSON.stringify(metadata)).not.toMatch(/ciphertext|iv|key|plaintext|owner/i);
+  });
+});
+
+describe("owner list cursor", () => {
+  it("round-trips createdAt and id", () => {
+    const cursor = { createdAt: new Date("2026-08-31T00:00:00.000Z"), id: "abcDEF12_-" };
+    expect(decodeOwnerListCursor(encodeOwnerListCursor(cursor))).toEqual(cursor);
+    expect(decodeOwnerListCursor("%%%")).toBeNull();
   });
 });

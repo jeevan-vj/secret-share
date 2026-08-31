@@ -1,3 +1,5 @@
+import { base64UrlToBytes, bytesToBase64Url } from "@/lib/encoding";
+
 const CURSOR_MAX_CHARS = 256;
 
 export type OwnerListCursor = {
@@ -7,16 +9,14 @@ export type OwnerListCursor = {
 
 export function encodeOwnerListCursor(cursor: OwnerListCursor): string {
   const payload = `${cursor.createdAt.getTime()}:${cursor.id}`;
-  return btoa(payload).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return bytesToBase64Url(new TextEncoder().encode(payload));
 }
 
 export function decodeOwnerListCursor(value: string | null | undefined): OwnerListCursor | null {
   if (!value) return null;
   if (value.length > CURSOR_MAX_CHARS) return null;
   try {
-    const padded = value.replace(/-/g, "+").replace(/_/g, "/");
-    const pad = padded.length % 4 === 0 ? "" : "=".repeat(4 - (padded.length % 4));
-    const decoded = atob(padded + pad);
+    const decoded = new TextDecoder().decode(base64UrlToBytes(value));
     const separator = decoded.indexOf(":");
     if (separator <= 0) return null;
     const createdAtMs = Number(decoded.slice(0, separator));

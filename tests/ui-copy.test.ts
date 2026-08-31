@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { accountCopy, authCopy, createCopy, revealCopy, SECRET_MAX_LENGTH, SECRET_TTL_HOURS } from "../src/lib/ui-copy";
+import {
+  accountCopy,
+  authCopy,
+  chromeCopy,
+  createCopy,
+  revealCopy,
+  SECRET_MAX_LENGTH,
+  SECRET_TTL_HOURS,
+  siteCopy,
+} from "../src/lib/ui-copy";
 
 describe("create-page copy", () => {
   it("states client-side encryption and fragment-only keys", () => {
@@ -50,5 +59,64 @@ describe("account and dashboard copy", () => {
     expect(accountCopy.lead.toLowerCase()).toContain("cannot recover");
     expect(authCopy.signUpLead.toLowerCase()).toContain("cannot decrypt");
     expect(createCopy.signedInNote.toLowerCase()).toContain("fragment");
+  });
+});
+
+describe("homepage auth and security copy", () => {
+  it("offers Sign in and Sign up without requiring an account to share", () => {
+    expect(createCopy.signIn).toBe("Sign in");
+    expect(createCopy.signUp).toBe("Sign up");
+    expect(createCopy.optionalAccount.toLowerCase()).toContain("optional");
+    expect(createCopy.optionalAccount.toLowerCase()).toMatch(/without signing in|not required/);
+    expect(createCopy.optionalAccount.toLowerCase()).not.toMatch(/must sign|required to create|required to share/);
+  });
+
+  it("explains browser AES-256-GCM, ciphertext-only storage, fragment keys, and one-time consume", () => {
+    const explainer = [
+      createCopy.securityTitle,
+      createCopy.securityEncrypt,
+      createCopy.securityServer,
+      createCopy.securityKey,
+      createCopy.securityOnce,
+      createCopy.securityGone,
+    ].join(" ");
+
+    expect(explainer.toLowerCase()).toContain("aes-256-gcm");
+    expect(createCopy.securityEncrypt.toLowerCase()).toContain("browser");
+    expect(createCopy.securityServer.toLowerCase()).toContain("ciphertext");
+    expect(createCopy.securityServer.toLowerCase()).toMatch(/operational metadata|metadata/);
+    expect(createCopy.securityKey.toLowerCase()).toMatch(/url fragment|fragment/);
+    expect(createCopy.securityKey.toLowerCase()).toMatch(/never sent to|never stored/);
+    expect(createCopy.securityOnce.toLowerCase()).toMatch(/one-time|atomically consumed|first successful reveal/);
+    expect(createCopy.securityGone.toLowerCase()).toMatch(/expired/);
+    expect(createCopy.securityGone.toLowerCase()).toMatch(/consumed/);
+    expect(createCopy.securityGone.toLowerCase()).toMatch(/revoked/);
+    expect(createCopy.securityGone.toLowerCase()).toContain("cannot be retrieved");
+  });
+
+  it("does not claim that signing in can recover a key, plaintext, or full share URL", () => {
+    const homepage = [
+      createCopy.optionalAccount,
+      createCopy.securityTitle,
+      createCopy.securityEncrypt,
+      createCopy.securityServer,
+      createCopy.securityKey,
+      createCopy.securityOnce,
+      createCopy.securityGone,
+      createCopy.signedInNote,
+    ].join(" ").toLowerCase();
+
+    expect(homepage).not.toMatch(/sign(?:ing)? in (?:can |will )?recover/);
+    expect(homepage).not.toMatch(/account (?:can |will )?recover/);
+  });
+});
+
+describe("site footer copy", () => {
+  it("credits iamjeevan.com and links to the public source repository", () => {
+    expect(siteCopy.builtBy).toBe("Built by iamjeevan.com");
+    expect(siteCopy.builtByHref).toBe("https://iamjeevan.com");
+    expect(siteCopy.sourceCode).toBe("Source code");
+    expect(siteCopy.sourceCodeHref).toBe("https://github.com/jeevan-vj/secret-share");
+    expect(chromeCopy.signIn).toBe("Sign in");
   });
 });

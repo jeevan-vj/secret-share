@@ -38,6 +38,15 @@ export const createCopy = {
   footer: "Client-side encryption. Keys remain in the URL fragment. No recovery if the link is lost.",
   signedInNote:
     "Signed in: this share is attached to your account so you can revoke it later. The decryption key still stays in the link fragment. The server cannot recover it.",
+  signIn: "Sign in",
+  signUp: "Sign up",
+  optionalAccount: "Accounts are optional. You can create and reveal a secret without signing in.",
+  securityTitle: "How Secret Share protects secrets",
+  securityEncrypt: "Plaintext is encrypted in this browser with AES-256-GCM.",
+  securityServer: "Only ciphertext and operational metadata reach the server.",
+  securityKey: "The decryption key stays in the URL fragment and is never sent to or stored by the server.",
+  securityOnce: "A one-time secret is atomically consumed on the first successful reveal.",
+  securityGone: "Expired, consumed, or revoked secrets cannot be retrieved.",
 } as const;
 
 export const revealCopy = {
@@ -71,6 +80,14 @@ export const chromeCopy = {
   signUp: "Create account",
   account: "Account",
   signOut: "Sign out",
+} as const;
+
+export const siteCopy = {
+  builtBy: "Built by iamjeevan.com",
+  sourceCode: "Source code",
+  builtByHref: "https://iamjeevan.com",
+  sourceCodeHref: "https://github.com/jeevan-vj/secret-share",
+  opensInNewTab: "Opens in a new tab",
 } as const;
 
 export const accountCopy = {

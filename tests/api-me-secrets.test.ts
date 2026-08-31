@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const requireAccountSession = vi.fn();
-const listOwnedSecrets = vi.fn();
-const revokeOwnedSecret = vi.fn();
-const isTrustedMutationRequest = vi.fn();
+const { requireAccountSession, listOwnedSecrets, revokeOwnedSecret, isTrustedMutationRequest } = vi.hoisted(() => ({
+  requireAccountSession: vi.fn(),
+  listOwnedSecrets: vi.fn(),
+  revokeOwnedSecret: vi.fn(),
+  isTrustedMutationRequest: vi.fn(),
+}));
 
 vi.mock("@/lib/session", () => ({
   requireAccountSession,

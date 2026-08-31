@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(root, "src"),
+      "next/server": path.resolve(root, "node_modules/vinext/dist/shims/server.js"),
     },
   },
   test: {

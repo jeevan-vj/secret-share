@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const createSecretRecord = vi.fn();
-const resolveCreateOwner = vi.fn();
+const { createSecretRecord, resolveCreateOwner } = vi.hoisted(() => ({
+  createSecretRecord: vi.fn(),
+  resolveCreateOwner: vi.fn(),
+}));
 
 vi.mock("@/services/secrets", () => ({
   createSecretRecord,

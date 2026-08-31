@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getSession = vi.fn();
-const accountsEnabled = vi.fn();
+const { getSession, accountsEnabled } = vi.hoisted(() => ({
+  getSession: vi.fn(),
+  accountsEnabled: vi.fn(),
+}));
 
 vi.mock("@/lib/auth", () => ({
   auth: { api: { getSession } },

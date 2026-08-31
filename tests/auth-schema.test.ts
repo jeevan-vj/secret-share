@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { getAuthTables } from "better-auth/db";
+import { getTableColumns } from "drizzle-orm";
 import { account, session, user, verification } from "../src/db/schema";
 
-function columnNames(table: { _: { columns: Record<string, { name: string }> } }) {
-  return Object.values(table._.columns).map((column) => column.name).sort();
+function columnNames(table: Parameters<typeof getTableColumns>[0]) {
+  return Object.values(getTableColumns(table)).map((column) => column.name).sort();
 }
 
 describe("Better Auth 1.7.2 schema contract", () => {

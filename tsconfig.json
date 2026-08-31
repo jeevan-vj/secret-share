@@ -12,9 +12,12 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
-    "paths": { "@/*": ["./src/*"] },
+    "paths": {
+      "@/*": ["./src/*"],
+      "next/server": ["./node_modules/vinext/dist/shims/server.d.ts"]
+    },
     "types": ["@cloudflare/workers-types"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "vite.config.ts", "drizzle.config.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "vite.config.ts", "drizzle.config.ts", "next.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

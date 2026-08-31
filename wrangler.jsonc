@@ -5,11 +5,14 @@
   "compatibility_date": "2026-08-27",
   "compatibility_flags": ["nodejs_compat"],
   "assets": { "not_found_handling": "none" },
+  "vars": {
+    "BETTER_AUTH_URL": "https://secret-share.jeevan90wijerathna.workers.dev"
+  },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "secret-share",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "database_id": "21674092-eae2-43ee-93ca-5041dc7e57b3",
       "migrations_dir": "drizzle"
     }
   ]

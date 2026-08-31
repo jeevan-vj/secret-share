@@ -1,3 +1,5 @@
+import { db } from "@/db/client";
+import { resolveCreateOwner } from "@/lib/session";
 import { createSecretSchema } from "@/lib/validation";
 import { createSecretRecord } from "@/services/secrets";
 
@@ -14,9 +16,15 @@ export async function POST(request: Request) {
     return Response.json({ error: "invalid_request" }, { status: 400 });
   }
 
-  const result = await createSecretRecord({
+  const owner = await resolveCreateOwner(request);
+  if (owner.status === "error") {
+    return Response.json({ error: "unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
+  }
+
+  const result = await createSecretRecord(db, {
     ...parsed.data,
     expiresAt: new Date(parsed.data.expiresAt),
+    ownerUserId: owner.userId,
   });
 
   return Response.json(result, {

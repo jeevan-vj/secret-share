@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const createPage = readFileSync(new URL("../src/app/page.tsx", import.meta.url), "utf8");
 const revealPage = readFileSync(new URL("../src/app/s/[id]/page.tsx", import.meta.url), "utf8");
+const dashboardPage = readFileSync(new URL("../src/app/dashboard/page.tsx", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../src/app/styles.css", import.meta.url), "utf8");
 
 describe("create page security boundary", () => {
@@ -14,6 +15,7 @@ describe("create page security boundary", () => {
     expect(payload).toContain("iv");
     expect(payload).not.toMatch(/\bkey\b/);
     expect(payload).not.toMatch(/\bsecret\b/);
+    expect(payload).not.toMatch(/ownerUserId|owner_user_id/);
   });
 
   it("keeps the generated key in the fragment-only share link builder", () => {
@@ -30,6 +32,19 @@ describe("reveal page security boundary", () => {
     expect(revealPage).not.toMatch(/body:\s*[\s\S]*key/);
     expect(revealPage).not.toContain("localStorage");
     expect(revealPage).not.toContain("sessionStorage");
+  });
+});
+
+describe("dashboard security boundary", () => {
+  it("lists metadata only and never decrypts or stores keys", () => {
+    expect(dashboardPage).toContain("dashboardCopy.lead");
+    expect(dashboardPage).toContain("/api/me/secrets");
+    expect(dashboardPage).toContain("/revoke");
+    expect(dashboardPage).not.toContain("decryptSecret");
+    expect(dashboardPage).not.toContain("ciphertext");
+    expect(dashboardPage).not.toContain("localStorage");
+    expect(dashboardPage).not.toContain("sessionStorage");
+    expect(dashboardPage).not.toContain("buildShareLink");
   });
 });
 

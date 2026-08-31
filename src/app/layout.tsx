@@ -1,4 +1,7 @@
+import { AccountNav } from "@/components/account-nav";
+import { AccountsProvider } from "@/components/accounts-provider";
 import { Wordmark } from "@/components/ui";
+import { accountsEnabled } from "@/lib/accounts";
 import { brand, chromeCopy } from "@/lib/ui-copy";
 import "./styles.css";
 
@@ -8,6 +11,7 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const showAccounts = accountsEnabled();
   return (
     <html lang="en">
       <body>
@@ -15,10 +19,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           {brand.skip}
         </a>
         <div className="app">
-          <header className="topbar">
-            <Wordmark />
-          </header>
-          {children}
+          <AccountsProvider enabled={showAccounts}>
+            <header className="topbar">
+              <Wordmark />
+              {showAccounts ? <AccountNav /> : null}
+            </header>
+            {children}
+          </AccountsProvider>
           <footer className="footer">
             <p>{chromeCopy.footer}</p>
           </footer>

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { SignedInHint } from "@/components/account-nav";
 import { Alert, Button, Pills } from "@/components/ui";
 import { encryptSecret } from "@/lib/crypto";
 import { getCreateView } from "@/lib/page-views";
@@ -96,6 +97,7 @@ export default function HomePage() {
             <h1>{createCopy.title}</h1>
             <p className="lead">{createCopy.lead}</p>
             <p className="muted">{createCopy.oneTime}</p>
+            <SignedInHint />
             <Pills items={[createCopy.expires, createCopy.viewOnce]} />
             <form onSubmit={submit}>
               <label htmlFor="secret">{createCopy.label}</label>

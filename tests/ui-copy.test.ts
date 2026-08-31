@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chromeCopy, createCopy, revealCopy } from "../src/lib/ui-copy";
+import { accountCopy, chromeCopy, createCopy, dashboardCopy, revealCopy } from "../src/lib/ui-copy";
 
 describe("create-page copy", () => {
   it("keeps the zero-knowledge trust message on the landing page", () => {
@@ -46,5 +46,21 @@ describe("chrome copy", () => {
   it("repeats the client-side encryption cue without recovery language", () => {
     expect(chromeCopy.footer.toLowerCase()).toContain("client-side");
     expect(chromeCopy.footer.toLowerCase()).toContain("keys stay");
+  });
+});
+
+describe("account and dashboard copy", () => {
+  it("states that accounts cannot recover or redisplay the fragment key", () => {
+    expect(dashboardCopy.lead.toLowerCase()).toContain("management");
+    expect(dashboardCopy.lead.toLowerCase()).toContain("fragment");
+    expect(dashboardCopy.lead.toLowerCase()).toMatch(/cannot recover|cannot recover or redisplay/);
+    expect(dashboardCopy.lead).toContain("/s/<id>#k=<key>");
+    expect(accountCopy.accountLead.toLowerCase()).toContain("cannot reconstruct");
+  });
+
+  it("keeps auth errors generic", () => {
+    expect(accountCopy.genericError.toLowerCase()).not.toContain("exists");
+    expect(accountCopy.genericError.toLowerCase()).not.toContain("invalid password");
+    expect(accountCopy.resetLead.toLowerCase()).toContain("never reveal");
   });
 });

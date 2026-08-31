@@ -3,20 +3,15 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
 import { db } from "@/db/client";
 import { authSchema } from "@/db/schema";
+import { createAuthOptions } from "@/lib/auth-options";
+import type { AppAuthEnv } from "@/lib/env";
 
-type AuthEnv = {
-  BETTER_AUTH_SECRET?: string;
-  BETTER_AUTH_URL?: string;
-};
-
-const appEnv = env as unknown as AuthEnv;
+const appEnv = env as unknown as AppAuthEnv;
 
 export const auth = betterAuth({
-  secret: appEnv.BETTER_AUTH_SECRET,
-  baseURL: appEnv.BETTER_AUTH_URL,
+  ...createAuthOptions(appEnv),
   database: drizzleAdapter(db, {
     provider: "sqlite",
     schema: authSchema,
   }),
-  emailAndPassword: { enabled: true },
 });

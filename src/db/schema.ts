@@ -26,6 +26,7 @@ export const account = sqliteTable("account", {
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   accountId: text("account_id").notNull(),
   providerId: text("provider_id").notNull(),
+  issuer: text("issuer").notNull().default("local:credential"),
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
   accessTokenExpiresAt: integer("access_token_expires_at", { mode: "timestamp" }),
@@ -38,6 +39,7 @@ export const account = sqliteTable("account", {
 }, (t) => [
   index("account_user_id_idx").on(t.userId),
   uniqueIndex("account_provider_account_id_uq").on(t.providerId, t.accountId),
+  uniqueIndex("account_issuer_account_id_uq").on(t.issuer, t.accountId),
 ]);
 
 export const verification = sqliteTable("verification", {
@@ -58,8 +60,13 @@ export const secrets = sqliteTable("secret", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
   consumedAt: integer("consumed_at", { mode: "timestamp" }),
+  revokedAt: integer("revoked_at", { mode: "timestamp" }),
   deleteAfterView: integer("delete_after_view", { mode: "boolean" }).notNull().default(true),
   version: integer("version").notNull().default(1),
-}, (t) => [index("secret_expiry_idx").on(t.expiresAt), index("secret_owner_idx").on(t.ownerUserId)]);
+}, (t) => [
+  index("secret_expiry_idx").on(t.expiresAt),
+  index("secret_owner_idx").on(t.ownerUserId),
+  index("secret_owner_created_idx").on(t.ownerUserId, t.createdAt),
+]);
 
 export const authSchema = { user, session, account, verification };

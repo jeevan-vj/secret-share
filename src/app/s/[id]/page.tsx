@@ -34,7 +34,7 @@ export default function RevealPage({ params }: { params: Promise<{ id: string }>
     <main className="shell"><section className="card">
       <p className="eyebrow">ONE-TIME SECRET</p>
       <h1>Reveal encrypted secret</h1>
-      {!plaintext && <button type="button" onClick={reveal}>Reveal once</button>}
+      {!plaintext && <button type="button" onClick={reveal}>Reveal and consume secret</button>}
       {plaintext && <div className="result"><strong>Secret</strong><textarea readOnly value={plaintext} /><button type="button" onClick={() => navigator.clipboard.writeText(plaintext)}>Copy secret</button></div>}
       {message && <p role="alert" className="error">{message}</p>}
     </section></main>

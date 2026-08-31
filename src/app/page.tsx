@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Alert, Button, Pills } from "@/components/ui";
 import { encryptSecret } from "@/lib/crypto";
 import { getCreateView } from "@/lib/page-views";
@@ -13,7 +13,19 @@ export default function HomePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
   const view = getCreateView({ secret, busy, shareLink, error });
+
+  useEffect(() => {
+    fetch("/api/account/session", { cache: "no-store", credentials: "same-origin" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: { user?: { email: string | null } | null } | null) => {
+        setSignedIn(Boolean(body?.user));
+      })
+      .catch(() => {
+        setSignedIn(false);
+      });
+  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -24,6 +36,7 @@ export default function HomePage() {
       const encrypted = await encryptSecret(secret);
       const response = await fetch("/api/secrets", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ciphertext: encrypted.ciphertext,
@@ -96,6 +109,7 @@ export default function HomePage() {
             <h1>{createCopy.title}</h1>
             <p className="lead">{createCopy.lead}</p>
             <p className="muted">{createCopy.oneTime}</p>
+            {signedIn ? <p className="muted">{createCopy.signedInHint}</p> : null}
             <Pills items={[createCopy.expires, createCopy.viewOnce]} />
             <form onSubmit={submit}>
               <label htmlFor="secret">{createCopy.label}</label>

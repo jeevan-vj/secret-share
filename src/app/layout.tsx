@@ -1,3 +1,4 @@
+import { AccountNav } from "@/components/account-nav";
 import { Wordmark } from "@/components/ui";
 import { brand, chromeCopy } from "@/lib/ui-copy";
 import "./styles.css";
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <div className="app">
           <header className="topbar">
             <Wordmark />
+            <AccountNav />
           </header>
           {children}
           <footer className="footer">

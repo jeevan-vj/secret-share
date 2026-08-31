@@ -97,6 +97,34 @@ body {
   padding: 20px clamp(16px, 4vw, 28px);
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.account-nav {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.account-nav a,
+.text-link {
+  color: var(--accent);
+  background: none;
+  border: 0;
+  padding: 0;
+  min-height: 0;
+  font: inherit;
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.account-nav a:hover,
+.text-link:hover {
+  text-decoration: underline;
 }
 
 .footer {
@@ -208,7 +236,9 @@ label {
 }
 
 textarea,
-input[type="text"] {
+input[type="text"],
+input[type="email"],
+input[type="password"] {
   width: 100%;
   border: 1px solid var(--line);
   background: var(--paper);
@@ -225,7 +255,9 @@ textarea {
 }
 
 textarea:hover,
-input[type="text"]:hover {
+input[type="text"]:hover,
+input[type="email"]:hover,
+input[type="password"]:hover {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
 }
 
@@ -354,6 +386,64 @@ button:disabled {
     animation: none !important;
     transition: none !important;
   }
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin-top: 24px;
+}
+
+.meta-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.meta-table th,
+.meta-table td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: lowercase;
+}
+
+.status-available {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.status-consumed,
+.status-expired {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.status-revoked {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.sessions-panel {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.sessions-panel h2 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  margin: 0 0 8px;
 }
 
 @keyframes rise {

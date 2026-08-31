@@ -39,6 +39,31 @@ Acceptance criteria:
 
 Better Auth is configured on the same D1 database using its Drizzle adapter. Secret ownership is nullable so anonymous V1 remains possible. Authentication MUST NOT provide the ability to decrypt a secret.
 
+### SS-007 Optional accounts
+
+Anonymous create/reveal MUST keep working without an account. Accounts are a management add-on gated by `ACCOUNTS_ENABLED=true` (disabled by default in production).
+
+Acceptance criteria:
+- sign-up, email verification, sign-in, sign-out, password reset, and revoke-other-sessions work when accounts are enabled;
+- production auth uses HTTP-only cookies, an explicit SameSite policy, trusted origins/base URL, generic anti-enumeration responses, and rate limits on auth endpoints;
+- credentials, session tokens, verification/reset tokens, and request bodies are never logged.
+
+### SS-008 Session-derived ownership
+
+When accounts are enabled and `POST /api/secrets` carries a valid session, the server MUST store that session's user ID as `owner_user_id`. The client MUST NOT be able to choose or forge ownership. A session-lookup infrastructure failure MUST fail the create request instead of silently creating an unowned secret. A genuine no-session request remains anonymous. Existing anonymous shares are never retroactively claimed.
+
+### SS-009 Owner metadata dashboard
+
+An authenticated owner MAY list only their own shares as management metadata: `id`, `createdAt`, `expiresAt`, and derived `status` (`available`, `consumed`, `expired`, `revoked`). Responses MUST exclude ciphertext, IV, plaintext, keys, auth tokens, and complete share URLs. The UI MUST state that the service cannot recover or redisplay the fragment key or full link. User A MUST NOT list, inspect, revoke, or infer User B's records.
+
+### SS-010 Race-safe revocation
+
+An owner MAY revoke an available owned share by setting `revoked_at`. After revocation, bearer-link claim MUST return the same unavailable response used for consumed/expired shares. Claim and revoke are each one conditional `UPDATE ... RETURNING`. A concurrent claim versus revoke has exactly one winner; ciphertext is returned at most once. Repeat revoke of an already-revoked owned share is idempotent. Non-owners, anonymous callers, and consumed/expired/missing IDs receive a non-disclosing failure.
+
+### SS-011 Account deletion
+
+Deleting an account cascades Better Auth rows, revokes still-available owned shares, and sets `secret.owner_user_id` to NULL. Deletion is not key recovery.
+
 ### SS-005 Logging and telemetry
 
 The application MUST NOT log plaintext secrets, decryption keys, request bodies for secret endpoints, or full share URLs.

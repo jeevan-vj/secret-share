@@ -29,4 +29,17 @@ describe("create-secret input", () => {
   it("accepts ciphertext large enough for the UI's maximum Unicode plaintext", () => {
     expect(createSecretSchema.safeParse({ ...validPayload(), ciphertext: "A".repeat(400_100) }).success).toBe(true);
   });
+
+  it("strips client-supplied ownership and key fields", () => {
+    const parsed = createSecretSchema.safeParse({
+      ...validPayload(),
+      ownerUserId: "forged",
+      key: "should-not-exist",
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data).not.toHaveProperty("ownerUserId");
+      expect(parsed.data).not.toHaveProperty("key");
+    }
+  });
 });

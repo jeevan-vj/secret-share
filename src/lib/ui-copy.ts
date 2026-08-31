@@ -22,6 +22,8 @@ export const createCopy = {
   copied: "Copied",
   createAnother: "Create another secret",
   error: "Could not create the encrypted share link.",
+  signedInHint:
+    "You are signed in. This share will appear in your account history as management metadata only. The service cannot recover or redisplay the fragment key or the full link.",
 };
 
 export const revealCopy = {
@@ -45,4 +47,53 @@ export const revealCopy = {
 
 export const chromeCopy = {
   footer: "Client-side AES-256-GCM · Keys stay in the link · Nothing to recover on the server",
+  signIn: "Sign in",
+  account: "Account",
+  signOut: "Sign out",
+};
+
+export const accountCopy = {
+  eyebrow: "Optional account",
+  title: "Share history",
+  lead:
+    "This page lists management metadata for shares you created while signed in. It is not a recovery inbox. Secret Share never has the URL-fragment decryption key, so it cannot reconstruct or redisplay the complete /s/<id>#k=<key> link.",
+  empty: "No owned shares yet. Create a secret while signed in to see its status here.",
+  created: "Created",
+  expires: "Expires",
+  status: "Status",
+  revoke: "Revoke",
+  revoking: "Revoking…",
+  revoked: "Revoked",
+  loadMore: "Load more",
+  unavailable: "Accounts are not enabled on this deployment.",
+  unauthorized: "Sign in to manage shares you created while signed in.",
+  error: "Could not load your share history.",
+  revokeError: "Could not revoke that share.",
+  sessionsTitle: "Active sessions",
+  sessionsLead: "Revoke other signed-in sessions if a device is no longer trusted.",
+  revokeOthers: "Revoke other sessions",
+  signInTitle: "Sign in",
+  signUpTitle: "Create an account",
+  forgotTitle: "Reset your password",
+  verifyTitle: "Check your email",
+  resetTitle: "Choose a new password",
+  email: "Email",
+  password: "Password",
+  name: "Name",
+  submitSignIn: "Sign in",
+  submitSignUp: "Create account",
+  submitForgot: "Send reset link",
+  submitReset: "Update password",
+  genericAuthError: "Could not complete that request. Check the details and try again.",
+  verifyLead:
+    "If an account exists for that email, a verification link is on its way. Signing in requires a verified address.",
+  forgotLead: "If an account exists for that email, a reset link is on its way. This response is the same whether or not the address is registered.",
+  resetLead: "Choose a new password. This does not recover any secret-share links.",
+  needAccount: "Need an account?",
+  haveAccount: "Already have an account?",
+  forgotLink: "Forgot password?",
+  statusAvailable: "available",
+  statusConsumed: "consumed",
+  statusExpired: "expired",
+  statusRevoked: "revoked",
 };

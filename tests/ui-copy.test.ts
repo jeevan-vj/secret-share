@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chromeCopy, createCopy, revealCopy } from "../src/lib/ui-copy";
+import { accountCopy, chromeCopy, createCopy, revealCopy } from "../src/lib/ui-copy";
 
 describe("create-page copy", () => {
   it("keeps the zero-knowledge trust message on the landing page", () => {
@@ -46,5 +46,14 @@ describe("chrome copy", () => {
   it("repeats the client-side encryption cue without recovery language", () => {
     expect(chromeCopy.footer.toLowerCase()).toContain("client-side");
     expect(chromeCopy.footer.toLowerCase()).toContain("keys stay");
+  });
+});
+
+describe("account dashboard copy", () => {
+  it("says history is metadata only and the service cannot recover the fragment key", () => {
+    expect(accountCopy.lead.toLowerCase()).toContain("management metadata");
+    expect(accountCopy.lead.toLowerCase()).toContain("cannot recover");
+    expect(accountCopy.lead).toContain("#k=");
+    expect(createCopy.signedInHint.toLowerCase()).toContain("cannot recover");
   });
 });

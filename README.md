@@ -29,6 +29,36 @@ pnpm dev
 
 Create a local D1 database and replace the placeholder database ID in `wrangler.jsonc` before running server persistence locally.
 
+## Optional accounts
+
+Accounts are **disabled by default**. Set `ACCOUNTS_ENABLED=true` only after reviewing mail delivery, trusted origins, and rate limits.
+
+When enabled, a signed-in create stores `owner_user_id` from the Better Auth session. The dashboard lists management metadata only. The service cannot reconstruct `/s/<id>#k=<key>`.
+
+### Environment
+
+| Variable | Purpose |
+| --- | --- |
+| `BETTER_AUTH_SECRET` | Auth signing secret |
+| `BETTER_AUTH_URL` | Public origin / trusted base URL |
+| `AUTH_TRUSTED_ORIGINS` | Extra allowed origins (comma-separated) |
+| `ACCOUNTS_ENABLED` | `true` to expose auth + owner APIs |
+| `AUTH_EMAIL_FROM` | From address for verification/reset |
+| `AUTH_EMAIL_API_KEY` | Resend API key |
+| `AUTH_EMAIL_ENDPOINT` | Optional Resend-compatible endpoint |
+
+Mail is [Resend](https://resend.com)'s HTTP API. Verification and reset tokens are sent only in email and must not be logged. Production enablement fails closed if mail is unconfigured.
+
+### Migrations and deploy order
+
+1. Apply forward-only `drizzle/0001_accounts_lifecycle.sql` (account `issuer`, `rate_limit`, `secret.revoked_at`).
+2. Set auth secrets and trusted origins.
+3. Configure Resend and confirm verification/reset mail.
+4. Enable `ACCOUNTS_ENABLED=true`.
+5. Rollback is flag-only: turning the flag off hides account APIs. Do not drop `revoked_at`; claim now requires it to be null.
+
+`pnpm test` includes D1 integration coverage (`pnpm test:integration` for that suite only).
+
 ## Spec-driven TDD workflow
 
 1. Change `SPEC.md`/security invariants first.

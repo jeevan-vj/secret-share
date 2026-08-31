@@ -22,8 +22,12 @@ Primary assets are plaintext secrets and their decryption keys. Secondary assets
 | Expired data exposure | expiry predicate on claim + cleanup plan |
 | XSS/key exfiltration | strict CSP; no third-party JS on secret pages |
 | Brute-force/abuse | Cloudflare rate limiting + Turnstile in deployment phase |
-| Session compromise | Better Auth secure sessions; ownership never grants decrypt key |
+| Session compromise | Better Auth secure HTTP-only SameSite cookies; ownership never grants decrypt key |
+| Cross-user metadata enumeration | Owner-filtered queries; identical not-found responses for foreign/missing IDs |
+| Claim vs revoke race | Single conditional UPDATE on each side; exactly one winner |
+| Auth abuse / enumeration | Generic auth errors; database-backed rate limits; verified-email + reset require configured mail |
+| CSRF against revoke | SameSite cookies plus trusted-origin checks on mutating account APIs |
 
-## Residual risks
+## Account and metadata residual risks
 
-A compromised sender or recipient browser can read plaintext. Anyone receiving the full share URL has the decryption key. Metadata remains visible to infrastructure. A malicious first viewer can consume a one-time link before the intended recipient. These are product properties to communicate clearly, not problems that server-side encryption can solve.
+Owner dashboards expose share IDs, timestamps, and status to the signed-in user and to infrastructure. The service cannot recover a lost fragment key. After account deletion, remaining ciphertext rows are unowned; available shares are revoked first so leftover bearer links cannot be claimed. Mail delivery (Resend) sees verification/reset URLs, which are authentication tokens, not secret-share keys. Accounts stay disabled in production until mail, origins, and rate limits are reviewed.

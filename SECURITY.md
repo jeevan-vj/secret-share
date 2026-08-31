@@ -14,6 +14,11 @@
 10. Third-party scripts are prohibited on secret create/reveal pages unless explicitly security-reviewed.
 11. Authenticated ownership MUST NOT imply decryptability.
 12. Do not add a "recovery" mechanism that gives the server access to secret keys.
+13. Ownership MUST be derived from a server-validated session, never from a client claim.
+14. Session-lookup failures MUST NOT silently downgrade an intended owned share to anonymous.
+15. Owner APIs MUST return only an allowlist of metadata and MUST NOT reconstruct fragment keys or full share URLs.
+16. Revocation MUST be owner-scoped, apply only to available shares, and remain race-safe against claim.
+17. Auth secrets, passwords, session tokens, verification/reset tokens, and sensitive request bodies MUST NOT be logged.
 
 ## Reporting
 

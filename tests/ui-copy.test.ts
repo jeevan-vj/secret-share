@@ -59,6 +59,8 @@ describe("account and dashboard copy", () => {
     expect(accountCopy.lead.toLowerCase()).toContain("cannot recover");
     expect(authCopy.signUpLead.toLowerCase()).toContain("cannot decrypt");
     expect(createCopy.signedInNote.toLowerCase()).toContain("fragment");
+    expect(authCopy.socialLead.toLowerCase()).toContain("identity provider");
+    expect(authCopy.socialPrivacy.toLowerCase()).toContain("never receives");
   });
 });
 

@@ -1,7 +1,40 @@
 export const AUTH_MIN_PASSWORD_LENGTH = 12;
 
+export type SocialProvider = "google" | "github";
+
+export type SocialProviderConfig = Partial<
+  Record<SocialProvider, { clientId: string; clientSecret: string }>
+>;
+
+type SocialProviderEnv = {
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  GITHUB_CLIENT_ID?: string;
+  GITHUB_CLIENT_SECRET?: string;
+};
+
 export function parseAccountsEnabled(value: string | undefined): boolean {
   return value === "true";
+}
+
+export function parseSocialProviders(env: SocialProviderEnv): {
+  config: SocialProviderConfig;
+  publicProviders: SocialProvider[];
+} {
+  const config: SocialProviderConfig = {};
+  const googleClientId = env.GOOGLE_CLIENT_ID?.trim();
+  const googleClientSecret = env.GOOGLE_CLIENT_SECRET?.trim();
+  const githubClientId = env.GITHUB_CLIENT_ID?.trim();
+  const githubClientSecret = env.GITHUB_CLIENT_SECRET?.trim();
+
+  if (googleClientId && googleClientSecret) {
+    config.google = { clientId: googleClientId, clientSecret: googleClientSecret };
+  }
+  if (githubClientId && githubClientSecret) {
+    config.github = { clientId: githubClientId, clientSecret: githubClientSecret };
+  }
+
+  return { config, publicProviders: Object.keys(config) as SocialProvider[] };
 }
 
 export function parseTrustedOrigins(baseURL: string | undefined, extra = ""): string[] {

@@ -2,7 +2,14 @@ import { waitUntil } from "cloudflare:workers";
 import { db } from "@/db/client";
 import { createAuth } from "@/lib/auth-options";
 import { sendResendEmail } from "@/lib/mailer";
-import { getAppEnv, getMailerConfig, getSecureCookies, getTrustedOrigins, isAccountsEnabled } from "@/lib/runtime-env";
+import {
+  getAppEnv,
+  getMailerConfig,
+  getSecureCookies,
+  getSocialProviders,
+  getTrustedOrigins,
+  isAccountsEnabled,
+} from "@/lib/runtime-env";
 import { revokeAvailableSecretsForOwner } from "@/services/secret-queries";
 
 const appEnv = getAppEnv();
@@ -14,6 +21,7 @@ export const auth = createAuth({
   accountsEnabled: isAccountsEnabled(),
   trustedOrigins: getTrustedOrigins(),
   secureCookies: getSecureCookies(),
+  socialProviders: getSocialProviders().config,
   sendAuthEmail: async (email) => {
     const mailer = getMailerConfig();
     if (!mailer) throw new Error("mail_not_configured");

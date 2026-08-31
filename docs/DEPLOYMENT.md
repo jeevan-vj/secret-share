@@ -21,6 +21,10 @@ Anonymous create/reveal does not require the flag.
 | `AUTH_EMAIL_FROM` | yes | Verified Resend from-address |
 | `RESEND_API_KEY` | yes | Worker secret. Mailer is Resend's HTTP API |
 | `AUTH_TRUSTED_ORIGINS` | optional | Comma-separated extra origins; `BETTER_AUTH_URL` is always trusted |
+| `GOOGLE_CLIENT_ID` | optional | Enables Google only when paired with `GOOGLE_CLIENT_SECRET` |
+| `GOOGLE_CLIENT_SECRET` | optional | Worker secret; never expose to browser code or logs |
+| `GITHUB_CLIENT_ID` | optional | Enables GitHub only when paired with `GITHUB_CLIENT_SECRET` |
+| `GITHUB_CLIENT_SECRET` | optional | Worker secret; never expose to browser code or logs |
 
 Local `.env` example values are placeholders only.
 
@@ -52,8 +56,9 @@ pnpm db:migrate:local
 2. Configure `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `AUTH_EMAIL_FROM`, and `RESEND_API_KEY`.
 3. Confirm Resend domain/from-address is verified.
 4. Confirm Cloudflare WAF/rate-limit rules still cover `/api/auth/*` and secret APIs.
-5. Set `ACCOUNTS_ENABLED=true` and deploy.
-6. Smoke: sign-up → verify email → sign-in → create owned share → dashboard metadata → revoke → claim 404; concurrent claim/revoke still one winner.
+5. For each social provider, register the exact production callback URL: `<BETTER_AUTH_URL>/api/auth/callback/google` or `<BETTER_AUTH_URL>/api/auth/callback/github`. GitHub must be allowed read-only access to the user's email address.
+6. Set `ACCOUNTS_ENABLED=true` and deploy.
+7. Smoke: sign-up → verify email → sign-in → create owned share → dashboard metadata → revoke → claim 404; test each configured social provider returns to `/account`; concurrent claim/revoke still one winner.
 
 ## Control plane
 

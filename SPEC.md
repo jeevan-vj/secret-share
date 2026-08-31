@@ -55,9 +55,12 @@ Anonymous create and reveal MUST keep working without an account. Signing in add
 
 Acceptance criteria:
 - first-party email/password sign-up, email verification, sign-in, sign-out, password reset, and revoke-other-sessions are available when accounts are enabled;
+- Better Auth social sign-in supports Google and GitHub when a provider's complete credential pair is configured;
+- social sign-in uses redirect-based OAuth through the first-party Better Auth endpoint, returns to `/account`, encrypts provider tokens at rest, and never exposes secret contents or fragment keys to an identity provider;
+- social identities are linked only when Better Auth's verified-email checks succeed; providers are not force-trusted and different-email linking stays disabled;
 - production auth uses HTTP-only cookies with SameSite=Lax, Secure on HTTPS, trusted origins/base URL, generic anti-enumeration responses, and rate limits for sign-up/sign-in/verification/reset;
 - accounts stay disabled in production until `ACCOUNTS_ENABLED=true` and a reviewed mailer is configured;
-- no OAuth/social provider or third-party script is loaded on create/reveal pages.
+- no OAuth provider script or other third-party script is loaded on create/reveal pages.
 
 ### SS-008 Session-derived ownership and owner history
 
@@ -95,7 +98,6 @@ Deleting a user MUST revoke that user's available owned shares, then rely on `se
 - recipient email restrictions;
 - secret recovery or key escrow;
 - server-side decryption;
-- OAuth/social sign-in;
 - analytics scripts on secret pages;
 - dashboard actions that claim, preview, or decrypt a secret.
 

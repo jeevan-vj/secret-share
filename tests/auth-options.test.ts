@@ -8,6 +8,10 @@ const options = createAuthOptions({
   accountsEnabled: true,
   trustedOrigins: ["https://share.example"],
   secureCookies: true,
+  socialProviders: {
+    google: { clientId: "google-client", clientSecret: "google-secret" },
+    github: { clientId: "github-client", clientSecret: "github-secret" },
+  },
   sendAuthEmail: vi.fn(async () => undefined),
 });
 
@@ -42,6 +46,20 @@ describe("Better Auth options", () => {
     expect(options.telemetry).toEqual({ enabled: false });
   });
 
+  it("configures social sign-in without forced account linking and encrypts provider tokens", () => {
+    expect(options.socialProviders).toEqual({
+      google: { clientId: "google-client", clientSecret: "google-secret" },
+      github: { clientId: "github-client", clientSecret: "github-secret" },
+    });
+    expect(options.account.encryptOAuthTokens).toBe(true);
+    expect(options.account.accountLinking).toMatchObject({
+      enabled: true,
+      allowDifferentEmails: false,
+      trustedProviders: [],
+    });
+    expect(options.rateLimit.customRules["/sign-in/social"]).toEqual({ window: 60, max: 10 });
+  });
+
   it("disables email/password when accounts are not enabled", () => {
     const disabled = createAuthOptions({
       secret: "test-secret-test-secret-test-secret-test",
@@ -50,9 +68,13 @@ describe("Better Auth options", () => {
       accountsEnabled: false,
       trustedOrigins: ["https://share.example"],
       secureCookies: true,
+      socialProviders: {
+        google: { clientId: "google-client", clientSecret: "google-secret" },
+      },
       sendAuthEmail: vi.fn(async () => undefined),
     });
     expect(disabled.emailAndPassword.enabled).toBe(false);
+    expect(disabled.socialProviders).toEqual({});
   });
 
   it("keeps verification and reset email delivery on the request lifecycle", async () => {
@@ -70,6 +92,7 @@ describe("Better Auth options", () => {
       accountsEnabled: true,
       trustedOrigins: ["https://share.example"],
       secureCookies: true,
+      socialProviders: {},
       sendAuthEmail,
     });
 

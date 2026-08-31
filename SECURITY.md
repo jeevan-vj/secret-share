@@ -25,10 +25,12 @@ Accounts are optional. Anonymous sharing remains supported. Signing in never rec
 
 Production account features remain disabled until `ACCOUNTS_ENABLED=true`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `AUTH_EMAIL_FROM`, and `RESEND_API_KEY` are configured. Email verification and password reset MUST be available before production enablement. The Resend HTTP API is the checked-in mailer; it is still a deployment-time review item.
 
+Google and GitHub social sign-in are optional and enabled only by complete provider credential pairs. OAuth callbacks terminate at Better Auth under `/api/auth/callback/<provider>`. Provider tokens are encrypted at rest with the Better Auth secret. Providers are not force-trusted for account linking, different-email linking is disabled, and no provider SDK or script may be added to secret creation/reveal pages. Identity providers receive the normal OAuth identity request and callback metadata, but MUST never receive secret plaintext, ciphertext, share URLs, or fragment keys.
+
 ## Reporting
 
 Do not open public issues containing live secrets, credentials, exploit payloads against production, or customer data. Use GitHub private vulnerability reporting when enabled, or contact the repository owner privately.
 
 ## Review checklist
 
-Security-sensitive PRs must answer: Does plaintext ever cross a network boundary? Can a new code path expose the URL fragment? Can logs capture secret material? Does a schema change persist key material? Can concurrent requests defeat one-time semantics? Does new client-side script expand the XSS supply-chain surface? Can a client forge ownership? Can an owner dashboard return ciphertext or a full share URL? Does a claim/revoke race return ciphertext more than once?
+Security-sensitive PRs must answer: Does plaintext ever cross a network boundary? Can a new code path expose the URL fragment? Can logs capture secret material? Does a schema change persist key material? Can concurrent requests defeat one-time semantics? Does new client-side script expand the XSS supply-chain surface? Can OAuth state, callbacks, token storage, or account linking enable redirect abuse or account takeover? Can a client forge ownership? Can an owner dashboard return ciphertext or a full share URL? Does a claim/revoke race return ciphertext more than once?

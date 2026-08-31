@@ -187,6 +187,36 @@ a:hover {
   font-weight: 650;
 }
 
+.footer-links {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.policy {
+  gap: var(--space-5);
+}
+
+.policy header,
+.policy section {
+  margin: 0;
+}
+
+.policy h2 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.policy p {
+  margin: 0 0 var(--space-3);
+  color: var(--ink-secondary);
+}
+
+.policy p:last-child {
+  margin-bottom: 0;
+}
+
 .hero {
   display: grid;
   gap: var(--space-6);
@@ -407,6 +437,37 @@ a.btn-secondary {
   display: flex;
   flex-wrap: wrap;
   gap: 0.7rem;
+}
+
+.social-sign-in {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.social-sign-in > p {
+  margin: 0;
+}
+
+.social-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.7rem;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--line-strong);
 }
 
 .hint {

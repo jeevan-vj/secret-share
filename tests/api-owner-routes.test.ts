@@ -6,6 +6,7 @@ const runtime = vi.hoisted(() => ({
 
 vi.mock("@/lib/runtime-env", () => ({
   isAccountsEnabled: vi.fn(() => runtime.accountsEnabled),
+  getSocialProviders: vi.fn(() => ({ config: {}, publicProviders: ["google"] })),
   getTrustedOrigins: vi.fn(() => ["https://example.test"]),
 }));
 
@@ -55,7 +56,7 @@ describe("owner APIs", () => {
   it("hides the session endpoint when accounts are disabled", async () => {
     runtime.accountsEnabled = false;
     const response = await getMe(new Request("https://example.test/api/me"));
-    await expect(response.json()).resolves.toEqual({ accountsEnabled: false, user: null });
+    await expect(response.json()).resolves.toEqual({ accountsEnabled: false, socialProviders: [], user: null });
   });
 
   it("requires a session for history and never returns ciphertext fields", async () => {
@@ -157,7 +158,7 @@ describe("owner APIs", () => {
     vi.mocked(resolveSessionUser).mockResolvedValue(owner);
     const response = await getMe(cookieRequest("https://example.test/api/me"));
     const body = await response.json();
-    expect(body).toEqual({ accountsEnabled: true, user: owner });
+    expect(body).toEqual({ accountsEnabled: true, socialProviders: ["google"], user: owner });
     expect(JSON.stringify(body)).not.toMatch(/token|password|cookie/i);
   });
 });

@@ -33,6 +33,10 @@ export function PageShell({ children, footer }: Readonly<{ children: ReactNode; 
       </main>
       <footer className="site-footer">
         <p>{footer}</p>
+        <nav aria-label="Policies" className="footer-links">
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+        </nav>
         <p className="site-credit">
           <ExternalCreditLink href={siteCopy.builtByHref}>{siteCopy.builtBy}</ExternalCreditLink>
           <span aria-hidden="true">·</span>

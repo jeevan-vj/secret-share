@@ -4,6 +4,10 @@ import { describe, expect, it } from "vitest";
 const createPage = readFileSync(new URL("../src/app/page.tsx", import.meta.url), "utf8");
 const createRequest = readFileSync(new URL("../src/lib/create-secret-request.ts", import.meta.url), "utf8");
 const revealPage = readFileSync(new URL("../src/app/s/[id]/page.tsx", import.meta.url), "utf8");
+const signInPage = readFileSync(new URL("../src/app/sign-in/page.tsx", import.meta.url), "utf8");
+const privacyPage = readFileSync(new URL("../src/app/privacy/page.tsx", import.meta.url), "utf8");
+const termsPage = readFileSync(new URL("../src/app/terms/page.tsx", import.meta.url), "utf8");
+const pageShell = readFileSync(new URL("../src/components/page-shell.tsx", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../src/app/styles.css", import.meta.url), "utf8");
 
 describe("create page security boundary", () => {
@@ -47,5 +51,22 @@ describe("design system accessibility tokens", () => {
     expect(styles).toContain("--bg");
     expect(styles).toContain(":focus-visible");
     expect(styles).toContain("prefers-reduced-motion");
+  });
+});
+
+describe("social sign-in security boundary", () => {
+  it("uses Better Auth redirects with a fixed local return path and no provider scripts", () => {
+    expect(signInPage).toContain("authClient.signIn.social");
+    expect(signInPage).toContain('callbackURL: "/account"');
+    expect(signInPage).not.toMatch(/<script|accounts\.google\.com|github\.com\/login/i);
+  });
+
+  it("publishes provider disclosures and permanent policy links", () => {
+    expect(privacyPage).toContain("Google and GitHub");
+    expect(privacyPage).toContain("never receive your secret contents or decryption key");
+    expect(privacyPage).toContain("URL fragment");
+    expect(termsPage).toContain("bearer credential");
+    expect(pageShell).toContain('href="/privacy"');
+    expect(pageShell).toContain('href="/terms"');
   });
 });

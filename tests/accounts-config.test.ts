@@ -3,6 +3,7 @@ import {
   hasCookieHeader,
   isTrustedMutationRequest,
   parseAccountsEnabled,
+  parseSocialProviders,
   parseTrustedOrigins,
   usesSecureCookies,
 } from "../src/lib/accounts-config";
@@ -21,6 +22,23 @@ describe("accounts config", () => {
     ]);
     expect(usesSecureCookies("https://share.example")).toBe(true);
     expect(usesSecureCookies("http://localhost:3000")).toBe(false);
+  });
+
+  it("enables social providers only when each credential pair is complete", () => {
+    expect(
+      parseSocialProviders({
+        GOOGLE_CLIENT_ID: "google-client",
+        GOOGLE_CLIENT_SECRET: "google-secret",
+        GITHUB_CLIENT_ID: "github-client",
+      }),
+    ).toEqual({
+      config: { google: { clientId: "google-client", clientSecret: "google-secret" } },
+      publicProviders: ["google"],
+    });
+    expect(parseSocialProviders({ GITHUB_CLIENT_SECRET: "github-secret" })).toEqual({
+      config: {},
+      publicProviders: [],
+    });
   });
 
   it("requires a trusted Origin when cookies are present", () => {

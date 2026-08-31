@@ -1,5 +1,10 @@
 import { env } from "cloudflare:workers";
-import { parseAccountsEnabled, parseTrustedOrigins, usesSecureCookies } from "@/lib/accounts-config";
+import {
+  parseAccountsEnabled,
+  parseSocialProviders,
+  parseTrustedOrigins,
+  usesSecureCookies,
+} from "@/lib/accounts-config";
 
 type AppEnv = {
   DB: D1Database;
@@ -9,6 +14,10 @@ type AppEnv = {
   AUTH_TRUSTED_ORIGINS?: string;
   AUTH_EMAIL_FROM?: string;
   RESEND_API_KEY?: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  GITHUB_CLIENT_ID?: string;
+  GITHUB_CLIENT_SECRET?: string;
 };
 
 export function getAppEnv(): AppEnv {
@@ -26,6 +35,10 @@ export function getTrustedOrigins(): string[] {
 
 export function getSecureCookies(): boolean {
   return usesSecureCookies(getAppEnv().BETTER_AUTH_URL);
+}
+
+export function getSocialProviders() {
+  return parseSocialProviders(getAppEnv());
 }
 
 export function getMailerConfig(): { apiKey: string; from: string } | null {

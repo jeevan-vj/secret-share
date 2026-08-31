@@ -1,7 +1,7 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
 import { authSchema } from "@/db/schema";
-import { AUTH_MIN_PASSWORD_LENGTH } from "@/lib/accounts-config";
+import { AUTH_MIN_PASSWORD_LENGTH, type SocialProviderConfig } from "@/lib/accounts-config";
 import type { AuthEmail } from "@/lib/mailer";
 
 export type AuthDatabase = Parameters<typeof drizzleAdapter>[0];
@@ -13,6 +13,7 @@ export type AuthOptionInput = {
   accountsEnabled: boolean;
   trustedOrigins: string[];
   secureCookies: boolean;
+  socialProviders: SocialProviderConfig;
   sendAuthEmail: (email: AuthEmail) => Promise<void>;
   revokeAvailableForUser?: (userId: string) => Promise<void>;
 };
@@ -36,6 +37,15 @@ export function createAuthOptions(input: AuthOptionInput) {
     trustedOrigins: input.trustedOrigins,
     telemetry: { enabled: false },
     logger: { disabled: true },
+    socialProviders: input.accountsEnabled ? input.socialProviders : {},
+    account: {
+      encryptOAuthTokens: true,
+      accountLinking: {
+        enabled: true,
+        trustedProviders: [],
+        allowDifferentEmails: false,
+      },
+    },
     session: {
       expiresIn: 60 * 60 * 24 * 7,
       updateAge: 60 * 60 * 24,
@@ -90,6 +100,7 @@ export function createAuthOptions(input: AuthOptionInput) {
       storage: "database" as const,
       customRules: {
         "/sign-in/email": { window: 60, max: 5 },
+        "/sign-in/social": { window: 60, max: 10 },
         "/sign-up/email": { window: 60, max: 5 },
         "/request-password-reset": { window: 60, max: 3 },
         "/forget-password": { window: 60, max: 3 },

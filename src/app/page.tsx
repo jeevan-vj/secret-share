@@ -1,11 +1,18 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { Alert, Button, Pills } from "@/components/ui";
+import { Alert } from "@/components/alert";
+import { Button } from "@/components/button";
+import { PageShell } from "@/components/page-shell";
+import { TrustList } from "@/components/trust-list";
+import { buildCreateSecretBody } from "@/lib/create-secret-request";
 import { encryptSecret } from "@/lib/crypto";
-import { getCreateView } from "@/lib/page-views";
 import { buildShareLink } from "@/lib/share-link";
-import { createCopy } from "@/lib/ui-copy";
+import { createCopy, SECRET_MAX_LENGTH } from "@/lib/ui-copy";
+
+function formatCount(length: number) {
+  return `${length.toLocaleString("en-US")} / ${SECRET_MAX_LENGTH.toLocaleString("en-US")}`;
+}
 
 export default function HomePage() {
   const [secret, setSecret] = useState("");
@@ -13,7 +20,6 @@ export default function HomePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const view = getCreateView({ secret, busy, shareLink, error });
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -25,21 +31,14 @@ export default function HomePage() {
       const response = await fetch("/api/secrets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ciphertext: encrypted.ciphertext,
-          iv: encrypted.iv,
-          algorithm: encrypted.algorithm,
-          version: encrypted.version,
-          deleteAfterView: true,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        }),
+        body: JSON.stringify(buildCreateSecretBody(encrypted)),
       });
       if (!response.ok) throw new Error("Unable to create secret");
       const { id } = (await response.json()) as { id: string };
       setShareLink(buildShareLink(window.location.origin, id, encrypted.key));
       setSecret("");
     } catch {
-      setError(createCopy.error);
+      setError(createCopy.createError);
     } finally {
       setBusy(false);
     }
@@ -50,80 +49,116 @@ export default function HomePage() {
     try {
       await navigator.clipboard.writeText(shareLink);
       setCopied(true);
+      setError(null);
     } catch {
       setCopied(false);
+      setError(createCopy.copyFailed);
     }
   }
 
-  function createAnother() {
+  function reset() {
     setShareLink(null);
-    setError(null);
     setCopied(false);
+    setError(null);
+    setSecret("");
   }
 
   return (
-    <main id="content" className="shell">
-      <section className="card">
-        {view.showResult ? (
-          <>
-            <p className="eyebrow">{createCopy.resultEyebrow}</p>
-            <h1>{createCopy.resultTitle}</h1>
-            <p className="lead">{createCopy.resultBody}</p>
-            <div className="result">
-              <label htmlFor="share-link">{createCopy.resultTitle}</label>
-              <input
-                id="share-link"
-                type="text"
-                readOnly
-                value={shareLink ?? ""}
-                onFocus={(e) => e.currentTarget.select()}
-                spellCheck={false}
-                autoComplete="off"
-              />
-              <div className="button-row">
-                <Button type="button" onClick={copyLink}>
-                  {copied ? createCopy.copied : createCopy.copyLink}
+    <PageShell footer={createCopy.footer}>
+      <section className="hero">
+        <div className="hero-copy">
+          <p className="eyebrow">{createCopy.eyebrow}</p>
+          <h1>{shareLink ? createCopy.resultTitle : createCopy.title}</h1>
+          <p className="lead">{shareLink ? createCopy.resultLead : createCopy.lead}</p>
+          {shareLink ? null : (
+            <TrustList items={[createCopy.trustEncrypted, createCopy.trustKey, createCopy.trustOnce]} />
+          )}
+        </div>
+
+        <section className="card card-accent">
+          <div className="stack">
+            {shareLink ? (
+              <>
+                <Alert tone="ok" title={createCopy.resultReadyTitle} role="status">
+                  {createCopy.resultReadyBody}
+                </Alert>
+                <div className="field">
+                  <label className="field-label" htmlFor="share-link">
+                    {createCopy.resultLinkLabel}
+                  </label>
+                  <textarea
+                    id="share-link"
+                    className="mono result-link"
+                    rows={3}
+                    readOnly
+                    value={shareLink}
+                    onFocus={(event) => event.currentTarget.select()}
+                  />
+                </div>
+                <div className="actions">
+                  <Button onClick={copyLink}>{copied ? createCopy.copied : createCopy.copyLink}</Button>
+                  <Button variant="secondary" onClick={reset}>
+                    {createCopy.shareAnother}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <form className="stack" onSubmit={submit}>
+                <div className="field">
+                  <label className="field-label" htmlFor="secret">
+                    {createCopy.secretLabel}
+                  </label>
+                  <textarea
+                    id="secret"
+                    value={secret}
+                    onChange={(event) => setSecret(event.target.value)}
+                    required
+                    minLength={1}
+                    maxLength={SECRET_MAX_LENGTH}
+                    autoComplete="off"
+                    spellCheck={false}
+                    aria-describedby="secret-hint secret-count"
+                  />
+                  <div className="field-meta">
+                    <span id="secret-hint">{createCopy.secretHint}</span>
+                    <span id="secret-count">{formatCount(secret.length)}</span>
+                  </div>
+                </div>
+                <Alert tone="warn">{`${createCopy.oneTime} ${createCopy.expiry}`}</Alert>
+                <Button type="submit" disabled={busy || !secret}>
+                  {busy ? createCopy.submitting : createCopy.submit}
                 </Button>
-                <Button type="button" variant="secondary" onClick={createAnother}>
-                  {createCopy.createAnother}
-                </Button>
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="eyebrow">{createCopy.eyebrow}</p>
-            <h1>{createCopy.title}</h1>
-            <p className="lead">{createCopy.lead}</p>
-            <p className="muted">{createCopy.oneTime}</p>
-            <Pills items={[createCopy.expires, createCopy.viewOnce]} />
-            <form onSubmit={submit}>
-              <label htmlFor="secret">{createCopy.label}</label>
-              <textarea
-                id="secret"
-                value={secret}
-                onChange={(e) => setSecret(e.target.value)}
-                required
-                minLength={1}
-                maxLength={100000}
-                autoComplete="off"
-                spellCheck={false}
-                aria-describedby="secret-hint"
-                aria-invalid={view.status === "error"}
-              />
-              <p id="secret-hint" className="hint">
-                {createCopy.hint}
-              </p>
-              <Button type="submit" disabled={view.submitDisabled} aria-busy={busy}>
-                {view.submitLabel}
-              </Button>
-            </form>
+              </form>
+            )}
             {error ? (
-              <Alert tone="danger">{error}</Alert>
+              <Alert tone="danger" role="alert">
+                {error}
+              </Alert>
             ) : null}
-          </>
-        )}
+          </div>
+        </section>
       </section>
-    </main>
+
+      <section className="steps" aria-labelledby="how-it-works">
+        <h2 id="how-it-works">{createCopy.howTitle}</h2>
+        <div className="step-grid">
+          <article className="step">
+            <span className="step-index">1</span>
+            <h3>{createCopy.howStep1Title}</h3>
+            <p>{createCopy.howStep1Body}</p>
+          </article>
+          <article className="step">
+            <span className="step-index">2</span>
+            <h3>{createCopy.howStep2Title}</h3>
+            <p>{createCopy.howStep2Body}</p>
+          </article>
+          <article className="step">
+            <span className="step-index">3</span>
+            <h3>{createCopy.howStep3Title}</h3>
+            <p>{createCopy.howStep3Body}</p>
+          </article>
+        </div>
+      </section>
+    </PageShell>
   );
 }

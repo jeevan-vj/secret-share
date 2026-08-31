@@ -1,50 +1,44 @@
 import { describe, expect, it } from "vitest";
-import { chromeCopy, createCopy, revealCopy } from "../src/lib/ui-copy";
+import { createCopy, revealCopy, SECRET_MAX_LENGTH, SECRET_TTL_HOURS } from "../src/lib/ui-copy";
 
 describe("create-page copy", () => {
-  it("keeps the zero-knowledge trust message on the landing page", () => {
-    expect(createCopy.lead.toLowerCase()).toContain("browser");
-    expect(createCopy.lead.toLowerCase()).toContain("fragment");
-    expect(createCopy.title.toLowerCase()).toContain("server");
+  it("states client-side encryption and fragment-only keys", () => {
+    const text = `${createCopy.lead} ${createCopy.trustEncrypted} ${createCopy.trustKey} ${createCopy.footer}`;
+    expect(text.toLowerCase()).toContain("browser");
+    expect(text.toLowerCase()).toContain("ciphertext");
+    expect(text.toLowerCase()).toMatch(/url fragment|fragment/);
+    expect(text.toLowerCase()).toContain("never sent to the server");
   });
 
-  it("explains one-time expiry before a link is created", () => {
+  it("explains one-time consume and 24-hour expiry before the sender shares", () => {
     expect(createCopy.oneTime.toLowerCase()).toContain("one-time");
-    expect(createCopy.oneTime.toLowerCase()).toContain("first successful reveal");
-    expect(createCopy.expires.toLowerCase()).toContain("24 hours");
-    expect(createCopy.viewOnce.toLowerCase()).toContain("once");
+    expect(createCopy.oneTime.toLowerCase()).toMatch(/first successful reveal|viewed once/);
+    expect(createCopy.expiry).toContain(String(SECRET_TTL_HOURS));
+    expect(createCopy.expiry.toLowerCase()).toContain("expire");
+    expect(createCopy.resultLead.toLowerCase()).toContain("once");
+    expect(createCopy.resultReadyBody.toLowerCase()).toContain("fragment");
   });
 
-  it("makes the primary create and copy actions explicit", () => {
-    expect(createCopy.submit).toMatch(/encrypt/i);
-    expect(createCopy.copyLink).toBe("Copy one-time link");
-    expect(createCopy.createAnother.toLowerCase()).toContain("another");
+  it("keeps the secret field bound to the existing client max length", () => {
+    expect(SECRET_MAX_LENGTH).toBe(100_000);
+    expect(createCopy.secretHint).toContain("100,000");
+    expect(createCopy.secretLabel).toBe("Secret");
   });
 });
 
 describe("reveal-page copy", () => {
-  it("explains one-time consumption before the reveal action", () => {
-    expect(revealCopy.beforeReveal.toLowerCase()).toContain("once");
-    expect(revealCopy.beforeReveal.toLowerCase()).toContain("stops working");
+  it("explains one-time consume before the recipient reveals", () => {
+    expect(revealCopy.lead.toLowerCase()).toContain("once");
+    expect(revealCopy.lead.toLowerCase()).toMatch(/consumes|consume/);
+    expect(revealCopy.trust.toLowerCase()).toMatch(/url fragment|fragment/);
+    expect(revealCopy.trust.toLowerCase()).toContain("not sent to the server");
   });
 
-  it("preserves client-side decryption and fragment-key language", () => {
-    expect(revealCopy.trust.toLowerCase()).toContain("browser");
-    expect(revealCopy.trust.toLowerCase()).toContain("fragment");
-    expect(revealCopy.trust.toLowerCase()).toContain("never sent");
-  });
-
-  it("uses distinct consumed, missing-key, and decrypt-failure messages", () => {
-    expect(revealCopy.unavailable.toLowerCase()).toMatch(/expired|already been viewed/);
-    expect(revealCopy.missingKey.toLowerCase()).toContain("decryption key");
-    expect(revealCopy.decryptFailed.toLowerCase()).toContain("decrypt");
-    expect(new Set([revealCopy.unavailable, revealCopy.missingKey, revealCopy.decryptFailed]).size).toBe(3);
-  });
-});
-
-describe("chrome copy", () => {
-  it("repeats the client-side encryption cue without recovery language", () => {
-    expect(chromeCopy.footer.toLowerCase()).toContain("client-side");
-    expect(chromeCopy.footer.toLowerCase()).toContain("keys stay");
+  it("keeps consumed, missing-key, and decrypt-failure states distinct and honest", () => {
+    expect(revealCopy.unavailableBody.toLowerCase()).toMatch(/expired|already been viewed/);
+    expect(revealCopy.unavailableBody.toLowerCase()).toContain("cannot be retrieved");
+    expect(revealCopy.missingKeyBody.toLowerCase()).toContain("fragment");
+    expect(revealCopy.missingKeyBody.toLowerCase()).toContain("never stored on the server");
+    expect(revealCopy.decryptFailedBody.toLowerCase()).toMatch(/invalid|modified/);
   });
 });

@@ -45,5 +45,5 @@ export function toOwnerShare(input: {
 }
 
 export function ownerShareKeys(share: OwnerShare): string[] {
-  return Object.keys(share).sort();
+  return Object.keys(share).sort((left, right) => left.localeCompare(right));
 }

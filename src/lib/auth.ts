@@ -3,7 +3,6 @@ import { betterAuth } from "better-auth";
 import type { AppDatabase } from "@/db/create-db";
 import { authSchema } from "@/db/schema";
 import {
-  isAccountsEnabled,
   parseTrustedOrigins,
   useSecureAuthCookies,
   type AccountsEnv,
@@ -113,4 +112,4 @@ export function accountsDisabledResponse() {
   return Response.json({ error: "not_found" }, { status: 404, headers: { "Cache-Control": "no-store" } });
 }
 
-export { isAccountsEnabled };
+export { isAccountsEnabled } from "@/lib/accounts";

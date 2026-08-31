@@ -18,6 +18,37 @@ const statusLabel: Record<ShareStatus, string> = {
   revoked: accountCopy.statusRevoked,
 };
 
+async function revokeOtherSessions() {
+  await authClient.revokeOtherSessions();
+}
+
+function ShareAction({
+  item,
+  revokingId,
+  onRevoke,
+}: {
+  item: OwnerShare;
+  revokingId: string | null;
+  onRevoke: (id: string) => void;
+}) {
+  if (item.status === "available") {
+    return (
+      <Button
+        type="button"
+        variant="secondary"
+        disabled={revokingId === item.id}
+        onClick={() => onRevoke(item.id)}
+      >
+        {revokingId === item.id ? accountCopy.revoking : accountCopy.revoke}
+      </Button>
+    );
+  }
+  if (item.status === "revoked") {
+    return <span className="muted">{accountCopy.revoked}</span>;
+  }
+  return null;
+}
+
 export default function AccountPage() {
   const [items, setItems] = useState<OwnerShare[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -75,10 +106,6 @@ export default function AccountPage() {
     );
   }
 
-  async function revokeOtherSessions() {
-    await authClient.revokeOtherSessions();
-  }
-
   return (
     <main id="content" className="shell">
       <section className="card">
@@ -109,18 +136,7 @@ export default function AccountPage() {
                           <span className={`status-pill status-${item.status}`}>{statusLabel[item.status]}</span>
                         </td>
                         <td>
-                          {item.status === "available" ? (
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              disabled={revokingId === item.id}
-                              onClick={() => revoke(item.id)}
-                            >
-                              {revokingId === item.id ? accountCopy.revoking : accountCopy.revoke}
-                            </Button>
-                          ) : item.status === "revoked" ? (
-                            <span className="muted">{accountCopy.revoked}</span>
-                          ) : null}
+                          <ShareAction item={item} revokingId={revokingId} onRevoke={revoke} />
                         </td>
                       </tr>
                     ))}

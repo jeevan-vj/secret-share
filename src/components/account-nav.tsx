@@ -9,6 +9,11 @@ type AccountSession = {
   user: { email: string | null } | null;
 };
 
+async function signOut() {
+  await authClient.signOut();
+  window.location.href = "/";
+}
+
 export function AccountNav() {
   const [session, setSession] = useState<AccountSession | null>(null);
 
@@ -28,11 +33,6 @@ export function AccountNav() {
   }, []);
 
   if (!session?.accountsEnabled) return null;
-
-  async function signOut() {
-    await authClient.signOut();
-    window.location.href = "/";
-  }
 
   return (
     <nav className="account-nav" aria-label="Account">

@@ -54,13 +54,13 @@ export type OwnerCursor = {
 };
 
 export function encodeOwnerCursor(cursor: OwnerCursor): string {
-  return btoa(`${cursor.createdAt}\0${cursor.id}`).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return btoa(`${cursor.createdAt}\0${cursor.id}`).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
 
 export function decodeOwnerCursor(value: string | null): OwnerCursor | null {
   if (!value) return null;
   try {
-    const padded = value.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = value.replaceAll("-", "+").replaceAll("_", "/");
     const pad = padded.length % 4 === 0 ? "" : "=".repeat(4 - (padded.length % 4));
     const decoded = atob(padded + pad);
     const separator = decoded.indexOf("\0");

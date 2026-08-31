@@ -1,7 +1,7 @@
 import { and, desc, eq, gt, isNull, lt, or } from "drizzle-orm";
 import type { AppDatabase } from "@/db/create-db";
 import { secrets, user } from "@/db/schema";
-import { decodeOwnerCursor, encodeOwnerCursor, type OwnerCursor } from "@/lib/accounts";
+import { encodeOwnerCursor, type OwnerCursor } from "@/lib/accounts";
 import { toOwnerShare, type OwnerShare } from "@/lib/share-status";
 
 function randomId(): string {

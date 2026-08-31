@@ -4,6 +4,11 @@ import { describe, expect, it } from "vitest";
 const createPage = readFileSync(new URL("../src/app/page.tsx", import.meta.url), "utf8");
 const revealPage = readFileSync(new URL("../src/app/s/[id]/page.tsx", import.meta.url), "utf8");
 const dashboardPage = readFileSync(new URL("../src/app/dashboard/page.tsx", import.meta.url), "utf8");
+const signUpLayout = readFileSync(new URL("../src/app/sign-up/layout.tsx", import.meta.url), "utf8");
+const signInLayout = readFileSync(new URL("../src/app/sign-in/layout.tsx", import.meta.url), "utf8");
+const dashboardLayout = readFileSync(new URL("../src/app/dashboard/layout.tsx", import.meta.url), "utf8");
+const authRoute = readFileSync(new URL("../src/app/api/auth/[...all]/route.ts", import.meta.url), "utf8");
+const accountsGate = readFileSync(new URL("../src/components/accounts-gate.tsx", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../src/app/styles.css", import.meta.url), "utf8");
 
 describe("create page security boundary", () => {
@@ -45,6 +50,18 @@ describe("dashboard security boundary", () => {
     expect(dashboardPage).not.toContain("localStorage");
     expect(dashboardPage).not.toContain("sessionStorage");
     expect(dashboardPage).not.toContain("buildShareLink");
+  });
+});
+
+describe("accounts feature-flag boundary", () => {
+  it("gates sign-up UI and the Better Auth handler, not only navigation", () => {
+    expect(signUpLayout).toContain("accounts-gate");
+    expect(signInLayout).toContain("accounts-gate");
+    expect(dashboardLayout).toContain("accounts-gate");
+    expect(accountsGate).toContain("accountsEnabled");
+    expect(accountsGate).toContain("disabledTitle");
+    expect(authRoute).toContain("accountsEnabled");
+    expect(authRoute).toContain("not_found");
   });
 });
 

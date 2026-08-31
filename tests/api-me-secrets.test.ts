@@ -11,19 +11,14 @@ vi.mock("@/lib/session", () => ({
   requireAccountSession,
 }));
 
-vi.mock("@/services/secrets", () => ({
-  listOwnedSecrets,
-  revokeOwnedSecret,
-  decodeOwnerSecretCursor: (value: string | null | undefined) => {
-    if (!value) return null;
-    const separator = value.indexOf("_");
-    if (separator <= 0) return null;
-    const time = Number(value.slice(0, separator));
-    const id = value.slice(separator + 1);
-    if (!id || !Number.isFinite(time)) return null;
-    return { createdAt: new Date(time), id };
-  },
-}));
+vi.mock("@/services/secrets", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/secrets")>();
+  return {
+    ...actual,
+    listOwnedSecrets,
+    revokeOwnedSecret,
+  };
+});
 
 vi.mock("@/lib/origin", () => ({
   isTrustedMutationRequest,
@@ -76,6 +71,16 @@ describe("GET /api/me/secrets", () => {
       { name: "test-db" },
       expect.objectContaining({ ownerUserId: "user-a", limit: 20 }),
     );
+  });
+
+  it("returns 400 for an out-of-range cursor timestamp", async () => {
+    requireAccountSession.mockResolvedValue({ userId: "user-a" });
+    const response = await GET(
+      new Request("https://example.test/api/me/secrets?cursor=999999999999999999999_x"),
+    );
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "invalid_request" });
+    expect(listOwnedSecrets).not.toHaveBeenCalled();
   });
 });
 

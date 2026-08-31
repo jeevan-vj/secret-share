@@ -114,7 +114,9 @@ export function decodeOwnerSecretCursor(value: string | null | undefined): Owner
   const time = Number(value.slice(0, separator));
   const id = value.slice(separator + 1);
   if (!id || !Number.isFinite(time)) return null;
-  return { createdAt: new Date(time), id };
+  const createdAt = new Date(time);
+  if (!Number.isFinite(createdAt.getTime())) return null;
+  return { createdAt, id };
 }
 
 export async function listOwnedSecrets(

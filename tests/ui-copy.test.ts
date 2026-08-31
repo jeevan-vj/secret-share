@@ -63,4 +63,9 @@ describe("account and dashboard copy", () => {
     expect(accountCopy.genericError.toLowerCase()).not.toContain("invalid password");
     expect(accountCopy.resetLead.toLowerCase()).toContain("never reveal");
   });
+
+  it("explains that account pages stay off until enabled", () => {
+    expect(accountCopy.disabledTitle.toLowerCase()).toContain("not enabled");
+    expect(accountCopy.disabledLead.toLowerCase()).toContain("anonymous");
+  });
 });

@@ -81,6 +81,8 @@ export const accountCopy = {
   revokeOtherSessions: "Sign out other sessions",
   otherSessionsRevoked: "Other sessions were signed out.",
   signedInAs: "Signed in as",
+  disabledTitle: "Accounts are not enabled",
+  disabledLead: "Anonymous sharing still works. Account sign-up, sign-in, and dashboards stay off until this deployment enables them.",
 };
 
 export const dashboardCopy = {

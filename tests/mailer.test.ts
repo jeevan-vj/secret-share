@@ -17,8 +17,8 @@ describe("auth mailer", () => {
     });
 
     expect(fetchImpl).toHaveBeenCalledOnce();
-    const init = fetchImpl.mock.calls[0]?.[1] as RequestInit;
-    expect(String(init.headers)).not.toContain("super-secret-token");
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.stringify(init.headers)).not.toContain("super-secret-token");
     const body = JSON.parse(String(init.body)) as { text: string; to: string[] };
     expect(body.to).toEqual(["user@example.com"]);
     expect(body.text).toContain("super-secret-token");

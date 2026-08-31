@@ -13,9 +13,12 @@ export default function ForgotPage() {
   async function submit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
-    await authClient.forgetPassword({
-      email,
-      redirectTo: "/account/reset",
+    await authClient.$fetch("/request-password-reset", {
+      method: "POST",
+      body: {
+        email,
+        redirectTo: "/account/reset",
+      },
     });
     setBusy(false);
     setDone(true);

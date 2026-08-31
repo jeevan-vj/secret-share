@@ -52,7 +52,7 @@ describe("chrome copy", () => {
 describe("account dashboard copy", () => {
   it("says history is metadata only and the service cannot recover the fragment key", () => {
     expect(accountCopy.lead.toLowerCase()).toContain("management metadata");
-    expect(accountCopy.lead.toLowerCase()).toContain("cannot recover");
+    expect(accountCopy.lead.toLowerCase()).toContain("cannot reconstruct");
     expect(accountCopy.lead).toContain("#k=");
     expect(createCopy.signedInHint.toLowerCase()).toContain("cannot recover");
   });

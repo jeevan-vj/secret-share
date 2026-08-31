@@ -47,7 +47,9 @@ describe("GET /api/account/secrets", () => {
     });
 
     const response = await GET(new Request("https://example.test/api/account/secrets?limit=20"));
-    const body = await response.json();
+    const body = (await response.json()) as {
+      items: Array<{ id: string; createdAt: string; expiresAt: string; status: string }>;
+    };
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");

@@ -19,8 +19,9 @@ export default function HomePage() {
   useEffect(() => {
     fetch("/api/account/session", { cache: "no-store", credentials: "same-origin" })
       .then((response) => (response.ok ? response.json() : null))
-      .then((body: { user?: { email: string | null } | null } | null) => {
-        setSignedIn(Boolean(body?.user));
+      .then((body) => {
+        const session = body as { user?: { email: string | null } | null } | null;
+        setSignedIn(Boolean(session?.user));
       })
       .catch(() => {
         setSignedIn(false);

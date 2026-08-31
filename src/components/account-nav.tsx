@@ -16,8 +16,8 @@ export function AccountNav() {
     let cancelled = false;
     fetch("/api/account/session", { cache: "no-store", credentials: "same-origin" })
       .then((response) => (response.ok ? response.json() : null))
-      .then((body: AccountSession | null) => {
-        if (!cancelled && body) setSession(body);
+      .then((body) => {
+        if (!cancelled && body) setSession(body as AccountSession);
       })
       .catch(() => {
         if (!cancelled) setSession({ accountsEnabled: false, user: null });

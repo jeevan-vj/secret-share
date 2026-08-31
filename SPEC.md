@@ -32,7 +32,9 @@ A one-time secret MUST transition from available to consumed atomically. Only th
 Acceptance criteria:
 - consumed secrets return 404;
 - expired secrets return 404;
+- revoked secrets return the same 404 unavailable response;
 - the state transition is expressed as one conditional UPDATE ... RETURNING operation;
+- the availability predicate is `consumed_at IS NULL AND revoked_at IS NULL AND expires_at > now`;
 - concurrent callers cannot both satisfy the availability predicate.
 
 ### SS-004 Authenticated ownership foundation
@@ -41,20 +43,61 @@ Better Auth is configured on the same D1 database using its Drizzle adapter. Sec
 
 ### SS-005 Logging and telemetry
 
-The application MUST NOT log plaintext secrets, decryption keys, request bodies for secret endpoints, or full share URLs.
+The application MUST NOT log plaintext secrets, decryption keys, request bodies for secret endpoints, full share URLs, auth secrets, passwords, session tokens, verification/reset tokens, or sensitive headers.
 
 ### SS-006 Browser security
 
 Secret creation/view pages MUST avoid third-party JavaScript. Production response headers MUST target a strict CSP, deny framing, disable MIME sniffing and set a conservative referrer policy.
+
+### SS-007 Optional accounts
+
+Anonymous create and reveal MUST keep working without an account. Signing in adds management capabilities only.
+
+Acceptance criteria:
+- first-party email/password sign-up, email verification, sign-in, sign-out, password reset, and revoke-other-sessions are available when accounts are enabled;
+- production auth uses HTTP-only cookies with SameSite=Lax, Secure on HTTPS, trusted origins/base URL, generic anti-enumeration responses, and rate limits for sign-up/sign-in/verification/reset;
+- accounts stay disabled in production until `ACCOUNTS_ENABLED=true` and a reviewed mailer is configured;
+- no OAuth/social provider or third-party script is loaded on create/reveal pages.
+
+### SS-008 Session-derived ownership and owner history
+
+When a valid signed-in session creates a secret, the server stores that session's user ID as `owner_user_id`. Ownership is never accepted from the request body or another client claim.
+
+Acceptance criteria:
+- anonymous creation stores `NULL` and is not retroactively claimed after sign-in;
+- if session lookup has an infrastructure/internal failure, create fails rather than silently storing an unowned secret;
+- a genuine request with no session remains anonymous;
+- the owner dashboard/API is paginated, filtered server-side by the current user, and returns only `id`, `createdAt`, `expiresAt`, and derived status (`available`, `consumed`, `expired`, `revoked`);
+- dashboard/API responses MUST NOT include ciphertext, IV, plaintext, decryption keys, auth/session secrets, or a complete share URL;
+- UI copy MUST state that history is management metadata only and that the service cannot recover the fragment key or redisplay the full link;
+- User A cannot list, inspect, revoke, or infer existence of User B's records.
+
+### SS-009 Race-safe owner revocation
+
+An owner may revoke an available owned share. After revocation, bearer-link claims return the standard unavailable response.
+
+Acceptance criteria:
+- revocation is owner-only and succeeds only while the share is unconsumed, unexpired, and unrevoked;
+- the revoke mutation is one owner-filtered conditional UPDATE ... RETURNING;
+- a claim racing a revocation has exactly one winner: either claim returns ciphertext once, or revocation wins and no claim returns ciphertext;
+- repeat revocation of an already-revoked owned share is idempotent for that owner;
+- consumed, expired, nonexistent, or other-user records return a non-disclosing not-found response and do not become retrievable;
+- cookie-authenticated mutations enforce the application's trusted-origin policy.
+
+### SS-010 Account deletion
+
+Deleting a user MUST revoke that user's available owned shares, then rely on `secret.owner_user_id ON DELETE SET NULL` for remaining rows. Anonymous shares are never attached to the deleted or a new account.
 
 ## Explicitly out of scope for V1
 
 - file sharing;
 - passphrase-derived encryption;
 - recipient email restrictions;
-- secret recovery;
+- secret recovery or key escrow;
 - server-side decryption;
-- analytics scripts on secret pages.
+- OAuth/social sign-in;
+- analytics scripts on secret pages;
+- dashboard actions that claim, preview, or decrypt a secret.
 
 ## Definition of done for each feature
 

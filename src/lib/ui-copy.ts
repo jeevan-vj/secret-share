@@ -36,6 +36,8 @@ export const createCopy = {
   howStep3Title: "Reveal once",
   howStep3Body: "The recipient opens the link, decrypts in their browser, and the secret cannot be claimed again.",
   footer: "Client-side encryption. Keys remain in the URL fragment. No recovery if the link is lost.",
+  signedInNote:
+    "Signed in: this share is attached to your account so you can revoke it later. The decryption key still stays in the link fragment. The server cannot recover it.",
 } as const;
 
 export const revealCopy = {
@@ -62,4 +64,68 @@ export const revealCopy = {
   decryptFailedBody: "The link may be invalid or modified. Ciphertext is authenticated and will not decrypt if altered.",
   shareNew: "Share a new secret",
   footer: "Decryption happens in this browser. The server never receives the key.",
+} as const;
+
+export const chromeCopy = {
+  signIn: "Sign in",
+  signUp: "Create account",
+  account: "Account",
+  signOut: "Sign out",
+} as const;
+
+export const accountCopy = {
+  eyebrow: "Optional account",
+  title: "Your shares",
+  lead:
+    "This list is management metadata only. Secret Share never has the fragment decryption key and cannot recover or redisplay the full /s/<id>#k=… link. Copy that link when you create a share.",
+  disabled:
+    "Accounts are not enabled on this deployment. You can still create and reveal one-time secrets without signing in.",
+  empty: "No owned shares yet. Create a secret while signed in to see it here.",
+  loadMore: "Load more",
+  revoke: "Revoke",
+  revoking: "Revoking…",
+  revoked: "Revoked",
+  statusAvailable: "Available",
+  statusConsumed: "Consumed",
+  statusExpired: "Expired",
+  statusRevoked: "Revoked",
+  created: "Created",
+  expires: "Expires",
+  sessionsTitle: "Sessions",
+  sessionsBody: "Sign out other devices if a browser might still be signed in.",
+  revokeOtherSessions: "Sign out other devices",
+  verifyTitle: "Verify your email",
+  verifyBody: "Check your inbox for a verification link. Owned-share history stays unavailable until this email is verified.",
+  resendVerification: "Resend verification email",
+  genericAuthError: "Could not complete that request. Try again.",
+  rateLimited: "Too many attempts. Wait and try again.",
+  verifyRequired: "Verify your email before signing in.",
+  loading: "Loading…",
+} as const;
+
+export const authCopy = {
+  signInTitle: "Sign in",
+  signInLead: "Signing in lets you revoke shares you created while signed in. It cannot recover a lost link or key.",
+  signUpTitle: "Create an account",
+  signUpLead:
+    "Accounts are optional. Anonymous sharing still works. This account cannot decrypt secrets or rebuild the fragment key.",
+  email: "Email",
+  password: "Password",
+  name: "Name",
+  submitSignIn: "Sign in",
+  submitSignUp: "Create account",
+  submitting: "Working…",
+  forgot: "Forgot password",
+  haveAccount: "Already have an account? Sign in",
+  needAccount: "Need an account? Create one",
+  checkEmail: "Check your email for a verification link. The server never sees your secret keys.",
+  forgotTitle: "Reset password",
+  forgotLead: "If an account exists for that email, we send a reset link. This does not reveal whether the email is registered.",
+  forgotSubmit: "Send reset link",
+  forgotSent: "If an account exists, a reset link is on its way.",
+  resetTitle: "Choose a new password",
+  resetSubmit: "Update password",
+  resetDone: "Password updated. Sign in with your new password.",
+  passwordHint: "At least 12 characters.",
+  missingResetToken: "This reset link is missing its token. Use the link from the email.",
 } as const;

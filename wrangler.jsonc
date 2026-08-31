@@ -6,7 +6,8 @@
   "compatibility_flags": ["nodejs_compat"],
   "assets": { "not_found_handling": "none" },
   "vars": {
-    "BETTER_AUTH_URL": "https://secret-share.jeevan90wijerathna.workers.dev"
+    "BETTER_AUTH_URL": "https://secret-share.jeevan90wijerathna.workers.dev",
+    "ACCOUNTS_ENABLED": "false"
   },
   "d1_databases": [
     {

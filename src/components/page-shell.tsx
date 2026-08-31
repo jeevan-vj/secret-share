@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AccountNav } from "@/components/account-nav";
 import { BrandMark } from "@/components/brand-mark";
 import { createCopy } from "@/lib/ui-copy";
 
@@ -13,7 +14,10 @@ export function PageShell({ children, footer }: Readonly<{ children: ReactNode; 
           <BrandMark />
           <span>{createCopy.brand}</span>
         </a>
-        <p className="brand-meta">{createCopy.eyebrow}</p>
+        <div className="header-end">
+          <p className="brand-meta">{createCopy.eyebrow}</p>
+          <AccountNav />
+        </div>
       </header>
       <main className="site-main" id="main">
         {children}

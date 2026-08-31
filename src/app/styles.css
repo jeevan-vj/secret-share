@@ -148,6 +148,13 @@ a:hover {
   text-transform: uppercase;
 }
 
+.header-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
 .site-main {
   flex: 1;
   padding-bottom: var(--space-8);
@@ -271,7 +278,9 @@ a:hover {
 }
 
 textarea,
-input[type="text"] {
+input[type="text"],
+input[type="email"],
+input[type="password"] {
   width: 100%;
   border: 1px solid var(--line-strong);
   background: var(--surface-raised);
@@ -288,12 +297,16 @@ textarea {
 }
 
 textarea:hover,
-input[type="text"]:hover {
+input[type="text"]:hover,
+input[type="email"]:hover,
+input[type="password"]:hover {
   border-color: #b7ad9b;
 }
 
 textarea:focus-visible,
-input[type="text"]:focus-visible {
+input[type="text"]:focus-visible,
+input[type="email"]:focus-visible,
+input[type="password"]:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--focus) 35%, white);
   outline-offset: 0;
   border-color: var(--brand);
@@ -359,6 +372,18 @@ a.btn-secondary {
   display: flex;
   flex-wrap: wrap;
   gap: 0.7rem;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.hint {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
 }
 
 .actions .btn {
@@ -494,4 +519,62 @@ a.btn-secondary {
   .btn {
     transition: none;
   }
+}
+
+.account-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.account-nav a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.account-nav a:hover {
+  color: var(--brand);
+}
+
+.share-table-wrap {
+  margin-top: 24px;
+  overflow-x: auto;
+}
+
+.share-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.share-table th,
+.share-table td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.share-table code {
+  font-size: 12px;
+}
+
+h2 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  margin: 28px 0 8px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

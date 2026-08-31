@@ -1,13 +1,12 @@
-import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
-import { secrets } from "@/db/schema";
-
-function randomId(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
+import {
+  claimSecretRecord as claimSecretQuery,
+  createSecretRecord as createSecretQuery,
+  listOwnedSecrets as listOwnedQuery,
+  parseListCursor,
+  revokeAvailableSecretsForOwner as revokeAvailableQuery,
+  revokeOwnedSecret as revokeOwnedQuery,
+} from "@/services/secret-queries";
 
 export async function createSecretRecord(input: {
   ciphertext: string;
@@ -18,33 +17,26 @@ export async function createSecretRecord(input: {
   version: 1;
   ownerUserId?: string | null;
 }) {
-  const id = randomId();
-  await db.insert(secrets).values({
-    id,
-    ciphertext: input.ciphertext,
-    iv: input.iv,
-    expiresAt: input.expiresAt,
-    deleteAfterView: input.deleteAfterView,
-    algorithm: input.algorithm,
-    version: input.version,
-    ownerUserId: input.ownerUserId ?? null,
-    createdAt: new Date(),
-  });
-  return { id };
+  return createSecretQuery(db, input);
 }
 
 export async function claimSecretRecord(id: string) {
-  const now = new Date();
-  const rows = await db
-    .update(secrets)
-    .set({ consumedAt: now })
-    .where(and(eq(secrets.id, id), isNull(secrets.consumedAt), gt(secrets.expiresAt, now)))
-    .returning({
-      ciphertext: secrets.ciphertext,
-      iv: secrets.iv,
-      algorithm: secrets.algorithm,
-      version: secrets.version,
-    });
+  return claimSecretQuery(db, id);
+}
 
-  return rows[0] ?? null;
+export async function revokeOwnedSecret(ownerUserId: string, id: string) {
+  return revokeOwnedQuery(db, ownerUserId, id);
+}
+
+export async function revokeAvailableSecretsForOwner(ownerUserId: string) {
+  return revokeAvailableQuery(db, ownerUserId);
+}
+
+export async function listOwnedSecrets(
+  ownerUserId: string,
+  input: { limit: number; cursor: string | null },
+) {
+  const parsed = parseListCursor(input.cursor);
+  if (!parsed.ok) return { error: "invalid_cursor" as const };
+  return listOwnedQuery(db, ownerUserId, { limit: input.limit, cursor: parsed.cursor });
 }

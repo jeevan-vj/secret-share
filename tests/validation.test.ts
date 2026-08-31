@@ -26,6 +26,11 @@ describe("create-secret input", () => {
     expect(createSecretSchema.safeParse({ ...validPayload(), deleteAfterView: false }).success).toBe(false);
   });
 
+  it("strips a client-supplied ownerUserId instead of accepting it as input", () => {
+    const parsed = createSecretSchema.parse({ ...validPayload(), ownerUserId: "forged-user" });
+    expect(parsed).not.toHaveProperty("ownerUserId");
+  });
+
   it("accepts ciphertext large enough for the UI's maximum Unicode plaintext", () => {
     expect(createSecretSchema.safeParse({ ...validPayload(), ciphertext: "A".repeat(400_100) }).success).toBe(true);
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createCopy, revealCopy, SECRET_MAX_LENGTH, SECRET_TTL_HOURS } from "../src/lib/ui-copy";
+import { accountCopy, authCopy, createCopy, revealCopy, SECRET_MAX_LENGTH, SECRET_TTL_HOURS } from "../src/lib/ui-copy";
 
 describe("create-page copy", () => {
   it("states client-side encryption and fragment-only keys", () => {
@@ -40,5 +40,15 @@ describe("reveal-page copy", () => {
     expect(revealCopy.missingKeyBody.toLowerCase()).toContain("fragment");
     expect(revealCopy.missingKeyBody.toLowerCase()).toContain("never stored on the server");
     expect(revealCopy.decryptFailedBody.toLowerCase()).toMatch(/invalid|modified/);
+  });
+});
+
+describe("account and dashboard copy", () => {
+  it("states that history cannot recover the fragment key or full share link", () => {
+    expect(accountCopy.lead.toLowerCase()).toContain("management metadata");
+    expect(accountCopy.lead.toLowerCase()).toContain("fragment");
+    expect(accountCopy.lead.toLowerCase()).toContain("cannot recover");
+    expect(authCopy.signUpLead.toLowerCase()).toContain("cannot decrypt");
+    expect(createCopy.signedInNote.toLowerCase()).toContain("fragment");
   });
 });

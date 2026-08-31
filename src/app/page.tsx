@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Alert } from "@/components/alert";
 import { Button } from "@/components/button";
 import { PageShell } from "@/components/page-shell";
@@ -20,6 +20,20 @@ export default function HomePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/me", { cache: "no-store" })
+      .then(async (response) => (response.ok ? ((await response.json()) as { user?: { id: string } | null }) : null))
+      .then((body) => {
+        if (!cancelled) setSignedIn(Boolean(body?.user?.id));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -125,6 +139,7 @@ export default function HomePage() {
                   </div>
                 </div>
                 <Alert tone="warn">{`${createCopy.oneTime} ${createCopy.expiry}`}</Alert>
+                {signedIn ? <p className="muted">{createCopy.signedInNote}</p> : null}
                 <Button type="submit" disabled={busy || !secret}>
                   {busy ? createCopy.submitting : createCopy.submit}
                 </Button>

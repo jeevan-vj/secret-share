@@ -1,7 +1,16 @@
 import type { ReactNode } from "react";
 import { AccountNav } from "@/components/account-nav";
 import { BrandMark } from "@/components/brand-mark";
-import { createCopy } from "@/lib/ui-copy";
+import { createCopy, siteCopy } from "@/lib/ui-copy";
+
+function ExternalCreditLink({ href, children }: Readonly<{ href: string; children: ReactNode }>) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer">
+      {children}
+      <span className="visually-hidden"> ({siteCopy.opensInNewTab})</span>
+    </a>
+  );
+}
 
 export function PageShell({ children, footer }: Readonly<{ children: ReactNode; footer: string }>) {
   return (
@@ -24,6 +33,11 @@ export function PageShell({ children, footer }: Readonly<{ children: ReactNode; 
       </main>
       <footer className="site-footer">
         <p>{footer}</p>
+        <p className="site-credit">
+          <ExternalCreditLink href={siteCopy.builtByHref}>{siteCopy.builtBy}</ExternalCreditLink>
+          <span aria-hidden="true">·</span>
+          <ExternalCreditLink href={siteCopy.sourceCodeHref}>{siteCopy.sourceCode}</ExternalCreditLink>
+        </p>
       </footer>
     </div>
   );

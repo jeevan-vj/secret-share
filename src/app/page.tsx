@@ -87,6 +87,15 @@ export default function HomePage() {
           {shareLink ? null : (
             <TrustList items={[createCopy.trustEncrypted, createCopy.trustKey, createCopy.trustOnce]} />
           )}
+          {signedIn ? null : (
+            <p className="auth-links">
+              <span>{createCopy.optionalAccount}</span>
+              <span className="auth-link-row">
+                <a href="/sign-in">{createCopy.signIn}</a>
+                <a href="/sign-up">{createCopy.signUp}</a>
+              </span>
+            </p>
+          )}
         </div>
 
         <section className="card card-accent">
@@ -173,6 +182,17 @@ export default function HomePage() {
             <p>{createCopy.howStep3Body}</p>
           </article>
         </div>
+      </section>
+
+      <section className="security-explainer" aria-labelledby="security-model">
+        <h2 id="security-model">{createCopy.securityTitle}</h2>
+        <ul className="security-list">
+          <li>{createCopy.securityEncrypt}</li>
+          <li>{createCopy.securityServer}</li>
+          <li>{createCopy.securityKey}</li>
+          <li>{createCopy.securityOnce}</li>
+          <li>{createCopy.securityGone}</li>
+        </ul>
       </section>
     </PageShell>
   );

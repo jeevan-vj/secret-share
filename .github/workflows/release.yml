@@ -51,6 +51,6 @@ jobs:
       - name: Apply production D1 migrations
         run: pnpm wrangler d1 migrations apply secret-share --remote
       - name: Deploy production Worker
-        run: pnpm deploy
+        run: pnpm run deploy
       - name: Production smoke test
         run: curl --fail --silent --show-error --retry 4 --retry-all-errors https://secret-share.jeevan90wijerathna.workers.dev/ >/dev/null

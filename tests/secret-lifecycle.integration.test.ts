@@ -34,6 +34,13 @@ function ciphertextInput(ownerUserId: string | null, expiresAt = new Date(Date.n
   };
 }
 
+function expectOwnerMetadataOnly(result: Awaited<ReturnType<typeof listOwnedSecrets>>) {
+  expect(Object.keys(result).sort()).toEqual(["items", "nextCursor"]);
+  for (const item of result.items) {
+    expect(Object.keys(item).sort()).toEqual(["createdAt", "expiresAt", "id", "status"]);
+  }
+}
+
 describe("D1-compatible secret lifecycle", () => {
   it("attaches ownership only when provided by the server and lists only that owner's metadata", async () => {
     const db = createSecretsTestDb();
@@ -49,7 +56,7 @@ describe("D1-compatible secret lifecycle", () => {
     expect(list.items[0]).toEqual(
       expect.objectContaining({ id: owned.id, status: "available" }),
     );
-    expect(JSON.stringify(list)).not.toMatch(/ciphertext|iv|plaintext|key/i);
+    expectOwnerMetadataOnly(list);
   });
 
   it("returns ciphertext at most once and treats revoked shares as unavailable", async () => {
@@ -124,6 +131,7 @@ describe("D1-compatible secret lifecycle", () => {
     });
     expect(page2.items).toHaveLength(1);
     expect(new Set([page1.items[0].id, page2.items[0].id])).toEqual(new Set([first.id, second.id]));
-    expect(JSON.stringify({ page1, page2 })).not.toMatch(/ciphertext|iv|plaintext|key/i);
+    expectOwnerMetadataOnly(page1);
+    expectOwnerMetadataOnly(page2);
   });
 });

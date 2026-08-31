@@ -86,60 +86,64 @@ export default function AccountPage() {
         <h1>{accountCopy.title}</h1>
         <p className="lead">{accountCopy.lead}</p>
         {error ? <Alert tone="danger">{error}</Alert> : null}
-        {items.length === 0 && !busy && !error ? <p className="muted">{accountCopy.empty}</p> : null}
-        {items.length > 0 ? (
-          <div className="table-wrap">
-            <table className="meta-table">
-              <thead>
-                <tr>
-                  <th>{accountCopy.created}</th>
-                  <th>{accountCopy.expires}</th>
-                  <th>{accountCopy.status}</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.id}>
-                    <td>{new Date(item.createdAt).toLocaleString()}</td>
-                    <td>{new Date(item.expiresAt).toLocaleString()}</td>
-                    <td>
-                      <span className={`status-pill status-${item.status}`}>{statusLabel[item.status]}</span>
-                    </td>
-                    <td>
-                      {item.status === "available" ? (
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          disabled={revokingId === item.id}
-                          onClick={() => revoke(item.id)}
-                        >
-                          {revokingId === item.id ? accountCopy.revoking : accountCopy.revoke}
-                        </Button>
-                      ) : item.status === "revoked" ? (
-                        <span className="muted">{accountCopy.revoked}</span>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {error !== accountCopy.unavailable ? (
+          <>
+            {items.length === 0 && !busy && !error ? <p className="muted">{accountCopy.empty}</p> : null}
+            {items.length > 0 ? (
+              <div className="table-wrap">
+                <table className="meta-table">
+                  <thead>
+                    <tr>
+                      <th>{accountCopy.created}</th>
+                      <th>{accountCopy.expires}</th>
+                      <th>{accountCopy.status}</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item) => (
+                      <tr key={item.id}>
+                        <td>{new Date(item.createdAt).toLocaleString()}</td>
+                        <td>{new Date(item.expiresAt).toLocaleString()}</td>
+                        <td>
+                          <span className={`status-pill status-${item.status}`}>{statusLabel[item.status]}</span>
+                        </td>
+                        <td>
+                          {item.status === "available" ? (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              disabled={revokingId === item.id}
+                              onClick={() => revoke(item.id)}
+                            >
+                              {revokingId === item.id ? accountCopy.revoking : accountCopy.revoke}
+                            </Button>
+                          ) : item.status === "revoked" ? (
+                            <span className="muted">{accountCopy.revoked}</span>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+            {nextCursor ? (
+              <div className="stack">
+                <Button type="button" variant="secondary" disabled={busy} onClick={() => load(nextCursor)}>
+                  {accountCopy.loadMore}
+                </Button>
+              </div>
+            ) : null}
+            <div className="sessions-panel">
+              <h2>{accountCopy.sessionsTitle}</h2>
+              <p className="muted">{accountCopy.sessionsLead}</p>
+              <Button type="button" variant="secondary" onClick={revokeOtherSessions}>
+                {accountCopy.revokeOthers}
+              </Button>
+            </div>
+          </>
         ) : null}
-        {nextCursor ? (
-          <div className="stack">
-            <Button type="button" variant="secondary" disabled={busy} onClick={() => load(nextCursor)}>
-              {accountCopy.loadMore}
-            </Button>
-          </div>
-        ) : null}
-        <div className="sessions-panel">
-          <h2>{accountCopy.sessionsTitle}</h2>
-          <p className="muted">{accountCopy.sessionsLead}</p>
-          <Button type="button" variant="secondary" onClick={revokeOtherSessions}>
-            {accountCopy.revokeOthers}
-          </Button>
-        </div>
       </section>
     </main>
   );

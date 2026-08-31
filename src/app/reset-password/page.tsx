@@ -59,14 +59,14 @@ function ResetPasswordPanel({
   password,
   onPasswordChange,
   onSubmit,
-}: {
+}: Readonly<{
   token: string | null | undefined;
   done: boolean;
   busy: boolean;
   password: string;
   onPasswordChange: (value: string) => void;
   onSubmit: (event: FormEvent) => void;
-}) {
+}>) {
   if (token === undefined) {
     return <p className="muted">{accountCopy.loading}</p>;
   }

@@ -137,7 +137,7 @@ function AccountBody({
   onLoadMore,
   onResendVerification,
   onRevokeOtherSessions,
-}: {
+}: Readonly<{
   accountsEnabled: boolean | null;
   loading: boolean;
   user: MeUser | null;
@@ -149,7 +149,7 @@ function AccountBody({
   onLoadMore: () => void;
   onResendVerification: () => void;
   onRevokeOtherSessions: () => void;
-}) {
+}>) {
   if (accountsEnabled === false) {
     return <Alert tone="info">{accountCopy.disabled}</Alert>;
   }
@@ -197,13 +197,13 @@ function OwnedShareList({
   busyId,
   onRevoke,
   onLoadMore,
-}: {
+}: Readonly<{
   items: ShareRow[];
   nextCursor: string | null;
   busyId: string | null;
   onRevoke: (id: string) => void;
   onLoadMore: () => void;
-}) {
+}>) {
   return (
     <div className="share-table-wrap">
       {items.length === 0 ? (
@@ -251,11 +251,11 @@ function ShareRowAction({
   row,
   busyId,
   onRevoke,
-}: {
+}: Readonly<{
   row: ShareRow;
   busyId: string | null;
   onRevoke: (id: string) => void;
-}) {
+}>) {
   if (row.status === "available") {
     return (
       <Button type="button" variant="secondary" disabled={busyId === row.id} onClick={() => onRevoke(row.id)}>

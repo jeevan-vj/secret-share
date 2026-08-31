@@ -4,7 +4,7 @@ import { getTableColumns } from "drizzle-orm";
 import { account, session, user, verification } from "../src/db/schema";
 
 function columnNames(table: Parameters<typeof getTableColumns>[0]) {
-  return Object.values(getTableColumns(table)).map((column) => column.name).sort();
+  return Object.values(getTableColumns(table)).map((column) => column.name).sort((a, b) => a.localeCompare(b));
 }
 
 describe("Better Auth 1.7.2 schema contract", () => {
@@ -13,7 +13,7 @@ describe("Better Auth 1.7.2 schema contract", () => {
   });
 
   it("includes the core user, session, account, and verification tables", () => {
-    expect(Object.keys(expected).sort()).toEqual(expect.arrayContaining(["account", "session", "user", "verification"]));
+    expect(Object.keys(expected).sort((a, b) => a.localeCompare(b))).toEqual(expect.arrayContaining(["account", "session", "user", "verification"]));
   });
 
   it("maps required user fields including emailVerified", () => {

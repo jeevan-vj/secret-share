@@ -56,7 +56,8 @@ export default function ResetPasswordPage() {
         <p className="lead">{accountCopy.resetLead}</p>
         {done ? (
           <Alert tone="success">{token ? accountCopy.resetDone : accountCopy.resetSent}</Alert>
-        ) : token ? (
+        ) : null}
+        {!done && token ? (
           <form onSubmit={confirmReset}>
             <label htmlFor="password">{accountCopy.newPassword}</label>
             <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="new-password" minLength={12} />
@@ -64,7 +65,8 @@ export default function ResetPasswordPage() {
               {busy ? accountCopy.submitting : accountCopy.confirmReset}
             </Button>
           </form>
-        ) : (
+        ) : null}
+        {!done && !token ? (
           <form onSubmit={requestReset}>
             <label htmlFor="email">{accountCopy.email}</label>
             <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
@@ -72,7 +74,7 @@ export default function ResetPasswordPage() {
               {busy ? accountCopy.submitting : accountCopy.resetSubmit}
             </Button>
           </form>
-        )}
+        ) : null}
         {error ? <Alert tone="danger">{error}</Alert> : null}
       </section>
     </main>

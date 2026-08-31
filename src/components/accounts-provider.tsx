@@ -4,7 +4,7 @@ import { createContext, useContext, type ReactNode } from "react";
 
 const AccountsContext = createContext(false);
 
-export function AccountsProvider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
+export function AccountsProvider({ enabled, children }: Readonly<{ enabled: boolean; children: ReactNode }>) {
   return <AccountsContext.Provider value={enabled}>{children}</AccountsContext.Provider>;
 }
 

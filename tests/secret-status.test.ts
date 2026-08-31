@@ -76,6 +76,8 @@ describe("owner secret view allowlist", () => {
       status: "available",
     });
     expect(isOwnerSecretView(view)).toBe(true);
-    expect(Object.keys(view).sort()).toEqual(["createdAt", "expiresAt", "id", "status"]);
+    expect([...Object.keys(view)].sort((a, b) => a.localeCompare(b))).toEqual(["createdAt", "expiresAt", "id", "status"]);
+    expect(isOwnerSecretView({ ...view, ciphertext: "nope" })).toBe(false);
+    expect(isOwnerSecretView({ id: view.id, createdAt: view.createdAt, expiresAt: view.expiresAt })).toBe(false);
   });
 });

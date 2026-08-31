@@ -43,6 +43,8 @@ export function toOwnerSecretView(
 
 export function isOwnerSecretView(value: unknown): value is OwnerSecretView {
   if (!value || typeof value !== "object") return false;
-  const keys = Object.keys(value).sort();
-  return keys.join(",") === [...OWNER_SECRET_PUBLIC_FIELDS].sort().join(",");
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record);
+  if (keys.length !== OWNER_SECRET_PUBLIC_FIELDS.length) return false;
+  return OWNER_SECRET_PUBLIC_FIELDS.every((field) => Object.hasOwn(record, field));
 }

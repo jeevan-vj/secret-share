@@ -100,7 +100,7 @@ describe("D1 secret lifecycle", { timeout: 30_000 }, () => {
     const listed = await listOwnedSecrets(harness.db, { ownerUserId: "owner-1", limit: 20 });
     expect(listed.items).toHaveLength(1);
     expect(listed.items[0]?.id).toBe(mine.id);
-    expect(Object.keys(listed.items[0] ?? {}).sort()).toEqual(["createdAt", "expiresAt", "id", "status"]);
+    expect(Object.keys(listed.items[0] ?? {}).sort((a, b) => a.localeCompare(b))).toEqual(["createdAt", "expiresAt", "id", "status"]);
     expect(JSON.stringify(listed)).not.toMatch(/ciphertext|iv/i);
   });
 

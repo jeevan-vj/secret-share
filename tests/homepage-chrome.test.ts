@@ -18,6 +18,12 @@ describe("homepage auth links", () => {
     expect(createPage).not.toMatch(/if\s*\(\s*!signedIn\s*\)\s*(return|throw)/);
     expect(createPage).not.toMatch(/window\.location\.assign\(\s*["']\/sign-in["']/);
   });
+
+  it("hides homepage auth links unless accounts are enabled", () => {
+    expect(createPage).toContain("accountsEnabled");
+    expect(createPage).toMatch(/accountsEnabled\s*&&\s*!signedIn/);
+    expect(createPage).toMatch(/body\?\.accountsEnabled/);
+  });
 });
 
 describe("homepage security explainer", () => {

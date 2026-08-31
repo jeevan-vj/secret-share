@@ -20,14 +20,19 @@ export default function HomePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [accountsEnabled, setAccountsEnabled] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/me", { cache: "no-store" })
-      .then(async (response) => (response.ok ? ((await response.json()) as { user?: { id: string } | null }) : null))
+      .then(async (response) =>
+        response.ok ? ((await response.json()) as { accountsEnabled?: boolean; user?: { id: string } | null }) : null,
+      )
       .then((body) => {
-        if (!cancelled) setSignedIn(Boolean(body?.user?.id));
+        if (cancelled) return;
+        setAccountsEnabled(Boolean(body?.accountsEnabled));
+        setSignedIn(Boolean(body?.user?.id));
       })
       .catch(() => undefined);
     return () => {
@@ -87,7 +92,7 @@ export default function HomePage() {
           {shareLink ? null : (
             <TrustList items={[createCopy.trustEncrypted, createCopy.trustKey, createCopy.trustOnce]} />
           )}
-          {signedIn ? null : (
+          {accountsEnabled && !signedIn ? (
             <p className="auth-links">
               <span>{createCopy.optionalAccount}</span>
               <span className="auth-link-row">
@@ -95,7 +100,7 @@ export default function HomePage() {
                 <a href="/sign-up">{createCopy.signUp}</a>
               </span>
             </p>
-          )}
+          ) : null}
         </div>
 
         <section className="card card-accent">

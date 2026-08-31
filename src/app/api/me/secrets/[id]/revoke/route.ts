@@ -1,5 +1,5 @@
 import { forbiddenOriginResponse, isTrustedMutationRequest, noStoreJson } from "@/lib/accounts-config";
-import { SessionLookupError, resolveSessionUserId } from "@/lib/request-session";
+import { SessionLookupError, resolveSessionUser } from "@/lib/request-session";
 import { getTrustedOrigins, isAccountsEnabled } from "@/lib/runtime-env";
 import { revokeOwnedSecret } from "@/services/secrets";
 
@@ -14,9 +14,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return forbiddenOriginResponse();
   }
 
-  let ownerUserId: string | null;
+  let owner;
   try {
-    ownerUserId = await resolveSessionUserId(request);
+    owner = await resolveSessionUser(request);
   } catch (error) {
     if (error instanceof SessionLookupError) {
       return noStoreJson({ error: "service_unavailable" }, 503);
@@ -24,8 +24,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     throw error;
   }
 
-  if (!ownerUserId) {
+  if (!owner) {
     return noStoreJson({ error: "unauthorized" }, 401);
+  }
+  if (!owner.emailVerified) {
+    return noStoreJson({ error: "forbidden" }, 403);
   }
 
   const { id } = await context.params;
@@ -33,7 +36,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return noStoreJson({ error: "not_found" }, 404);
   }
 
-  const outcome = await revokeOwnedSecret(ownerUserId, id);
+  const outcome = await revokeOwnedSecret(owner.id, id);
   if (outcome === "not_found") {
     return noStoreJson({ error: "not_found" }, 404);
   }

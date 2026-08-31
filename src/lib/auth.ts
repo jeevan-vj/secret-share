@@ -1,3 +1,4 @@
+import { waitUntil } from "cloudflare:workers";
 import { db } from "@/db/client";
 import { createAuth } from "@/lib/auth-options";
 import { sendResendEmail } from "@/lib/mailer";
@@ -16,7 +17,9 @@ export const auth = createAuth({
   sendAuthEmail: async (email) => {
     const mailer = getMailerConfig();
     if (!mailer) throw new Error("mail_not_configured");
-    await sendResendEmail(email, mailer);
+    const task = sendResendEmail(email, mailer);
+    waitUntil(task);
+    await task;
   },
   revokeAvailableForUser: (userId) => revokeAvailableSecretsForOwner(db, userId),
 });

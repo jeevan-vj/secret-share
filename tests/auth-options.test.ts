@@ -54,4 +54,38 @@ describe("Better Auth options", () => {
     });
     expect(disabled.emailAndPassword.enabled).toBe(false);
   });
+
+  it("keeps verification and reset email delivery on the request lifecycle", async () => {
+    let release!: () => void;
+    const sendAuthEmail = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const configured = createAuthOptions({
+      secret: "test-secret-test-secret-test-secret-test",
+      baseURL: "https://share.example",
+      db: {} as never,
+      accountsEnabled: true,
+      trustedOrigins: ["https://share.example"],
+      secureCookies: true,
+      sendAuthEmail,
+    });
+
+    let finished = false;
+    const pending = configured.emailAndPassword.sendResetPassword({
+      user: { email: "owner@example.test" },
+      url: "https://share.example/reset-password",
+    });
+    void pending.then(() => {
+      finished = true;
+    });
+    await Promise.resolve();
+    expect(finished).toBe(false);
+    expect(sendAuthEmail).toHaveBeenCalledOnce();
+    release();
+    await pending;
+    expect(finished).toBe(true);
+  });
 });

@@ -17,10 +17,12 @@ export type AuthOptionInput = {
   revokeAvailableForUser?: (userId: string) => Promise<void>;
 };
 
-function queueAuthEmail(sendAuthEmail: (email: AuthEmail) => Promise<void>, email: AuthEmail): void {
-  void sendAuthEmail(email).catch(() => {
+async function deliverAuthEmail(sendAuthEmail: (email: AuthEmail) => Promise<void>, email: AuthEmail): Promise<void> {
+  try {
+    await sendAuthEmail(email);
+  } catch {
     // Delivery failures must not log recipients, URLs, or tokens.
-  });
+  }
 }
 
 export function createAuthOptions(input: AuthOptionInput) {
@@ -55,14 +57,14 @@ export function createAuthOptions(input: AuthOptionInput) {
       maxPasswordLength: 128,
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }: { user: { email: string }; url: string }) => {
-        queueAuthEmail(input.sendAuthEmail, {
+        await deliverAuthEmail(input.sendAuthEmail, {
           to: user.email,
           subject: "Reset your Secret Share password",
           text: `Use this link to choose a new password. It expires soon.\n\n${url}\n`,
         });
       },
       onExistingUserSignUp: async ({ user }: { user: { email: string } }) => {
-        queueAuthEmail(input.sendAuthEmail, {
+        await deliverAuthEmail(input.sendAuthEmail, {
           to: user.email,
           subject: "A Secret Share sign-up was attempted with your email",
           text: "Someone tried to create a Secret Share account using this email. If this was you, sign in instead. If not, you can ignore this message.",
@@ -74,7 +76,7 @@ export function createAuthOptions(input: AuthOptionInput) {
       sendOnSignIn: true,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
-        queueAuthEmail(input.sendAuthEmail, {
+        await deliverAuthEmail(input.sendAuthEmail, {
           to: user.email,
           subject: "Verify your Secret Share email",
           text: `Confirm this email to finish creating your account.\n\n${url}\n`,

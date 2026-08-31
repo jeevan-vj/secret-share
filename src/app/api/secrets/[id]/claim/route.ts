@@ -1,8 +1,9 @@
+import { db } from "@/db/client";
 import { claimSecretRecord } from "@/services/secrets";
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  const secret = await claimSecretRecord(id);
+  const secret = await claimSecretRecord(db, id);
   if (!secret) {
     return Response.json({ error: "not_found" }, { status: 404, headers: { "Cache-Control": "no-store" } });
   }

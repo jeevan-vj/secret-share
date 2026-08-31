@@ -29,6 +29,18 @@ pnpm dev
 
 Create a local D1 database and replace the placeholder database ID in `wrangler.jsonc` before running server persistence locally.
 
+## Database integration tests
+
+`pnpm test` runs unit tests and D1 integration tests together (CI uses this script).
+
+The D1 tests start Wrangler's local test harness, apply Drizzle migrations from `drizzle/` onto a Miniflare D1 database, and exercise SPEC SS-003 one-time claim through the persistence/service layer:
+
+- first claim returns ciphertext metadata; a second claim is unavailable
+- expired secrets are unavailable
+- two concurrent claims yield exactly one success
+
+Run only those tests with `pnpm test:integration`. No extra dependencies or manual Wrangler steps are required. Test fixtures use opaque ciphertext/IV tokens and never log plaintext, keys, or share URLs.
+
 ## Spec-driven TDD workflow
 
 1. Change `SPEC.md`/security invariants first.

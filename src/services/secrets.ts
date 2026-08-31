@@ -1,5 +1,5 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
-import { db } from "@/db/client";
+import type { AppDatabase } from "@/db/create-db";
 import { secrets } from "@/db/schema";
 
 function randomId(): string {
@@ -9,15 +9,18 @@ function randomId(): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
-export async function createSecretRecord(input: {
-  ciphertext: string;
-  iv: string;
-  expiresAt: Date;
-  deleteAfterView: boolean;
-  algorithm: "A256GCM";
-  version: 1;
-  ownerUserId?: string | null;
-}) {
+export async function createSecretRecord(
+  db: AppDatabase,
+  input: {
+    ciphertext: string;
+    iv: string;
+    expiresAt: Date;
+    deleteAfterView: boolean;
+    algorithm: "A256GCM";
+    version: 1;
+    ownerUserId?: string | null;
+  },
+) {
   const id = randomId();
   await db.insert(secrets).values({
     id,
@@ -33,9 +36,8 @@ export async function createSecretRecord(input: {
   return { id };
 }
 
-export async function claimSecretRecord(id: string) {
-  const now = new Date();
-  const rows = await db
+export function claimSecretQuery(db: AppDatabase, id: string, now: Date) {
+  return db
     .update(secrets)
     .set({ consumedAt: now })
     .where(and(eq(secrets.id, id), isNull(secrets.consumedAt), gt(secrets.expiresAt, now)))
@@ -45,6 +47,9 @@ export async function claimSecretRecord(id: string) {
       algorithm: secrets.algorithm,
       version: secrets.version,
     });
+}
 
+export async function claimSecretRecord(db: AppDatabase, id: string) {
+  const rows = await claimSecretQuery(db, id, new Date());
   return rows[0] ?? null;
 }

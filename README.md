@@ -29,6 +29,10 @@ pnpm dev
 
 Create a local D1 database and replace the placeholder database ID in `wrangler.jsonc` before running server persistence locally.
 
+Optional accounts stay off until `ACCOUNTS_ENABLED=true` and mail/auth secrets are configured. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+Anonymous create/reveal does not require an account. Signing in never recovers the fragment key.
+
 ## Spec-driven TDD workflow
 
 1. Change `SPEC.md`/security invariants first.

@@ -1,22 +1,22 @@
-import { env } from "cloudflare:workers";
-import { drizzleAdapter } from "@better-auth/drizzle-adapter";
-import { betterAuth } from "better-auth";
 import { db } from "@/db/client";
-import { authSchema } from "@/db/schema";
+import { createAuth } from "@/lib/auth-options";
+import { sendResendEmail } from "@/lib/mailer";
+import { getAppEnv, getMailerConfig, getSecureCookies, getTrustedOrigins, isAccountsEnabled } from "@/lib/runtime-env";
+import { revokeAvailableSecretsForOwner } from "@/services/secret-queries";
 
-type AuthEnv = {
-  BETTER_AUTH_SECRET?: string;
-  BETTER_AUTH_URL?: string;
-};
+const appEnv = getAppEnv();
 
-const appEnv = env as unknown as AuthEnv;
-
-export const auth = betterAuth({
+export const auth = createAuth({
   secret: appEnv.BETTER_AUTH_SECRET,
   baseURL: appEnv.BETTER_AUTH_URL,
-  database: drizzleAdapter(db, {
-    provider: "sqlite",
-    schema: authSchema,
-  }),
-  emailAndPassword: { enabled: true },
+  db,
+  accountsEnabled: isAccountsEnabled(),
+  trustedOrigins: getTrustedOrigins(),
+  secureCookies: getSecureCookies(),
+  sendAuthEmail: async (email) => {
+    const mailer = getMailerConfig();
+    if (!mailer) throw new Error("mail_not_configured");
+    await sendResendEmail(email, mailer);
+  },
+  revokeAvailableForUser: (userId) => revokeAvailableSecretsForOwner(db, userId),
 });

@@ -16,6 +16,7 @@ describe("create page security boundary", () => {
     expect(payload).toContain("iv");
     expect(payload).not.toMatch(/\bkey\b/);
     expect(payload).not.toMatch(/\bsecret\b/);
+    expect(payload).not.toMatch(/ownerUserId/);
   });
 
   it("keeps the generated key in the fragment-only share link builder", () => {
